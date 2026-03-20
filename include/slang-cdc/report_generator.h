@@ -1,0 +1,21 @@
+#pragma once
+
+#include "slang-cdc/types.h"
+#include <string>
+#include <filesystem>
+
+namespace slang_cdc {
+
+/// Pass 6: Report generation
+class ReportGenerator {
+public:
+    explicit ReportGenerator(const AnalysisResult& result);
+
+    void generateMarkdown(const std::filesystem::path& output_path) const;
+    void generateJSON(const std::filesystem::path& output_path) const;
+
+private:
+    const AnalysisResult& result_;
+};
+
+} // namespace slang_cdc
