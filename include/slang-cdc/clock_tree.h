@@ -84,6 +84,13 @@ private:
                             const std::string& clock_name,
                             const std::string& inst_path);
 
+    /// Detect PLL/MMCM module outputs as primary clock sources
+    void detectPLLOutputs();
+
+    /// Recursive helper for PLL/MMCM detection
+    void detectPLLOutputsInInstance(const slang::ast::InstanceSymbol& inst,
+                                    const std::string& inst_path);
+
     /// Detect ICG (integrated clock gating) cells by module name pattern
     void detectClockGates();
 

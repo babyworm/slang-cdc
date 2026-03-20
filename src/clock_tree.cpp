@@ -35,7 +35,8 @@ void ClockTreeAnalyzer::analyze() {
     // Phase 1b: Propagate through hierarchy
     propagateFromRoot();
 
-    // Phase 1b+: Detect clock dividers and clock gates
+    // Phase 1b+: Detect PLL/MMCM outputs, clock dividers, and clock gates
+    detectPLLOutputs();
     detectClockDividers();
     detectClockGates();
 
@@ -301,6 +302,78 @@ void ClockTreeAnalyzer::collectSensitivityClocks(
                 local_nets[sig_name] = net_ptr;
             }
         }
+    }
+}
+
+// ── Phase 1b+: PLL/MMCM detection ──
+
+static bool isPLLName(const std::string& name) {
+    std::string upper = name;
+    std::transform(upper.begin(), upper.end(), upper.begin(), ::toupper);
+    for (auto& pat : {"PLL", "MMCM", "DCM", "CLKGEN"}) {
+        if (upper.find(pat) != std::string::npos) return true;
+    }
+    return false;
+}
+
+void ClockTreeAnalyzer::detectPLLOutputs() {
+    auto& root = compilation_.getRoot();
+    for (auto& member : root.members()) {
+        if (member.kind != slang::ast::SymbolKind::Instance) continue;
+        auto& inst = member.as<slang::ast::InstanceSymbol>();
+        detectPLLOutputsInInstance(inst, std::string(inst.name));
+    }
+}
+
+void ClockTreeAnalyzer::detectPLLOutputsInInstance(
+    const slang::ast::InstanceSymbol& inst,
+    const std::string& inst_path)
+{
+    for (auto& member : inst.body.members()) {
+        if (member.kind != slang::ast::SymbolKind::Instance) continue;
+        auto& child = member.as<slang::ast::InstanceSymbol>();
+        std::string child_path = inst_path + "." + std::string(child.name);
+
+        auto& def = child.getDefinition();
+        std::string def_name(def.name);
+
+        if (isPLLName(def_name)) {
+            // Treat output ports of PLL/MMCM instances as primary clock sources
+            for (auto& port_member : child.body.members()) {
+                if (port_member.kind != slang::ast::SymbolKind::Port) continue;
+                auto& port = port_member.as<slang::ast::PortSymbol>();
+                if (port.direction != slang::ast::ArgumentDirection::Out) continue;
+
+                std::string port_name(port.name);
+                std::string origin = child_path + "." + port_name;
+
+                // Check if already defined
+                bool already_exists = false;
+                for (auto& src : clock_db_.sources) {
+                    if (src->origin_signal == origin || src->name == port_name) {
+                        already_exists = true;
+                        break;
+                    }
+                }
+                if (already_exists) continue;
+
+                auto src = std::make_unique<ClockSource>();
+                src->id = "pll_" + child_path + "_" + port_name;
+                src->name = port_name;
+                src->type = ClockSource::Type::Primary;
+                src->origin_signal = origin;
+                clock_db_.addSource(std::move(src));
+
+                // Create a ClockNet for this output
+                auto net = std::make_unique<ClockNet>();
+                net->hier_path = origin;
+                net->source = clock_db_.sources.back().get();
+                clock_db_.addNet(std::move(net));
+            }
+        }
+
+        // Recurse into children
+        detectPLLOutputsInInstance(child, child_path);
     }
 }
 
