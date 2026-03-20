@@ -36,14 +36,16 @@ void CrossingDetector::analyze() {
             report.severity = Severity::High;
             report.category = ViolationCategory::Violation;
             report.id = "VIOLATION-" + std::to_string(++violation_counter_);
-            report.recommendation = "Insert 2-FF synchronizer at " +
+            report.rule = "Ac_cdc01";
+            report.recommendation = "[Ac_cdc01] Insert 2-FF synchronizer at " +
                 edge.dest->hier_path;
         } else {
             // Related domains (divided, gated) -- lower severity
             report.severity = Severity::Medium;
             report.category = ViolationCategory::Caution;
             report.id = "CAUTION-" + std::to_string(++caution_counter_);
-            report.recommendation = "Verify timing constraints for related-clock crossing";
+            report.rule = "Ac_cdc01";
+            report.recommendation = "[Ac_cdc01] Verify timing constraints for related-clock crossing";
         }
 
         // Add CONVENTION annotation for non-standard clock naming

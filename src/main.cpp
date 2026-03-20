@@ -207,7 +207,7 @@ int main(int argc, char** argv) {
 
     // ─── Pass 5: Synchronizer Verification ───
     slang_cdc::SyncVerifier verifier(crossings, classifier.getFFNodes(),
-                                     connectivity.getEdges());
+                                     connectivity.getEdges(), &clock_db);
     verifier.setRequiredStages(sync_stages);
     verifier.analyze();
 

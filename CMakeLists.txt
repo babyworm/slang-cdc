@@ -75,6 +75,7 @@ if(SLANG_CDC_BUILD_TESTS)
         tests/test_integration_fixtures.cpp
         tests/test_golden_reference.cpp
         tests/test_fifo_depth.cpp
+        tests/test_spyglass_rules.cpp
     )
     target_link_libraries(slang-cdc-tests PRIVATE slang-cdc-lib Catch2::Catch2WithMain)
     target_compile_definitions(slang-cdc-tests PRIVATE

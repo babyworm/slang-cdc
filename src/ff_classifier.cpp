@@ -223,7 +223,7 @@ static void processMembers(const slang::ast::Scope& scope,
             // Flag latches as warnings (spec 4.2.3)
             if (block.procedureKind == slang::ast::ProceduralBlockKind::AlwaysLatch) {
                 latch_warnings.push_back({inst_path,
-                    "always_latch detected — not a proper FF for CDC analysis"});
+                    "[Ac_conv03] always_latch detected — not a proper FF for CDC analysis"});
                 continue;
             }
 
@@ -260,7 +260,7 @@ static void processMembers(const slang::ast::Scope& scope,
                     }
                 }
                 errors.push_back({inst_path,
-                    "Multiple clock edges in sensitivity list: " + clock_names +
+                    "[Ac_cdc11] Multiple clock edges in sensitivity list: " + clock_names +
                     ". FF may have ambiguous clocking."});
             }
 

@@ -10,8 +10,9 @@ namespace slang_cdc {
 
 SyncVerifier::SyncVerifier(std::vector<CrossingReport>& crossings,
                            const std::vector<std::unique_ptr<FFNode>>& ff_nodes,
-                           const std::vector<FFEdge>& edges)
-    : crossings_(crossings), ff_nodes_(ff_nodes), edges_(edges) {}
+                           const std::vector<FFEdge>& edges,
+                           const ClockDatabase* clock_db)
+    : crossings_(crossings), ff_nodes_(ff_nodes), edges_(edges), clock_db_(clock_db) {}
 
 const FFNode* SyncVerifier::findNextFF(const FFNode* ff) const {
     // Find an FF in the same domain that is directly fed by this FF
@@ -102,7 +103,8 @@ void SyncVerifier::detectReconvergence() {
                 c.category = ViolationCategory::Caution;
                 c.severity = Severity::Medium;
                 c.id = "CAUTION-" + std::to_string(++caution_counter_);
-                c.recommendation = "Reconvergence risk: multiple signals from same "
+                c.rule = "Ac_cdc03";
+                c.recommendation = "[Ac_cdc03] Reconvergence risk: multiple signals from same "
                     "source domain cross independently. Consider gray code or handshake.";
             }
         }
@@ -121,7 +123,8 @@ void SyncVerifier::detectCombBeforeSync() {
             crossing.severity = Severity::Medium;
             if (crossing.id.find("CAUTION") == std::string::npos)
                 crossing.id = "CAUTION-" + std::to_string(++caution_counter_);
-            crossing.recommendation = "Combinational logic before sync FF introduces "
+            crossing.rule = "Ac_cdc02";
+            crossing.recommendation = "[Ac_cdc02, Ac_glitch01] Combinational logic before sync FF introduces "
                 "glitch risk. Drive synchronizer input directly from a source-domain FF.";
         }
     }
@@ -211,7 +214,8 @@ void SyncVerifier::detectResetSyncIssues() {
                 c.category = ViolationCategory::Caution;
                 c.severity = Severity::High;
                 c.id = "CAUTION-" + std::to_string(++caution_counter_);
-                c.recommendation = "Async reset from different clock domain without "
+                c.rule = "Ac_cdc06";
+                c.recommendation = "[Ac_cdc06] Async reset from different clock domain without "
                     "reset synchronizer. Use async-assert, sync-deassert pattern.";
             } else {
                 // Add a new crossing report for the reset issue
@@ -224,7 +228,8 @@ void SyncVerifier::detectResetSyncIssues() {
                 report.category = ViolationCategory::Caution;
                 report.severity = Severity::High;
                 report.id = "CAUTION-" + std::to_string(++caution_counter_);
-                report.recommendation = "Async reset from different clock domain without "
+                report.rule = "Ac_cdc06";
+                report.recommendation = "[Ac_cdc06] Async reset from different clock domain without "
                     "reset synchronizer. Use async-assert, sync-deassert pattern.";
                 // Update crossing_index for newly added crossing
                 crossing_index[pair_key] = crossings_.size();
@@ -306,6 +311,15 @@ void SyncVerifier::analyze() {
 
     // Phase 8: Detect non-power-of-2 FIFO depth
     detectNonPow2FIFO();
+
+    // Phase 9: Detect clock used as data [Ac_cdc09]
+    detectClockAsData();
+
+    // Phase 10: Detect same signal crossing to multiple domains [Ac_cdc11]
+    detectMultiDomainCrossing();
+
+    // Phase 11: Detect quasi-static signals [Ac_cdc12]
+    detectQuasiStaticSignals();
 }
 
 // ─── Advanced synchronizer pattern detection ───
@@ -575,7 +589,8 @@ void SyncVerifier::detectFanoutBeforeSync() {
             crossing.severity = Severity::Medium;
             if (crossing.id.find("CAUTION") == std::string::npos)
                 crossing.id = "CAUTION-" + std::to_string(++caution_counter_);
-            crossing.recommendation = "Data used before completing sync chain. "
+            crossing.rule = "Ac_cdc05";
+            crossing.recommendation = "[Ac_cdc05] Data used before completing sync chain. "
                 "First sync FF has multiple fanouts.";
         }
     }
@@ -648,7 +663,8 @@ void SyncVerifier::detectNonPow2FIFO() {
                 c.severity = Severity::Medium;
                 if (c.id.find("CAUTION") == std::string::npos)
                     c.id = "CAUTION-" + std::to_string(++caution_counter_);
-                c.recommendation = "Non-power-of-2 FIFO depth suspected (pointer width " +
+                c.rule = "Ac_cdc07";
+                c.recommendation = "[Ac_cdc07] Non-power-of-2 FIFO depth suspected (pointer width " +
                     std::to_string(bit_width) + " bits with wrap-around logic). "
                     "Verify Gray code wrap logic or use Johnson counter encoding.";
             }
@@ -748,6 +764,154 @@ void SyncVerifier::detectJohnsonCounter() {
                     std::to_string(bit_width / 2) + " states). "
                     "Valid single-bit-change encoding for non-power-of-2 depths.";
             }
+        }
+    }
+}
+
+void SyncVerifier::detectClockAsData() {
+    if (!clock_db_) return;
+
+    // Build a set of known clock signal names (source names and origin signals)
+    std::unordered_set<std::string> clock_names;
+    for (auto& src : clock_db_->sources) {
+        if (!src->name.empty()) clock_names.insert(src->name);
+        if (!src->origin_signal.empty()) clock_names.insert(src->origin_signal);
+    }
+    for (auto& net : clock_db_->nets) {
+        // Extract leaf name from hier_path
+        std::string leaf = net->hier_path;
+        auto dot = leaf.rfind('.');
+        if (dot != std::string::npos) leaf = leaf.substr(dot + 1);
+        clock_names.insert(leaf);
+    }
+
+    if (clock_names.empty()) return;
+
+    // Check all FFs: if any fanin signal is a known clock (other than its own), flag it
+    for (auto& ff : ff_nodes_) {
+        // Determine the FF's own clock name to skip it
+        std::string own_clock;
+        if (ff->domain && ff->domain->source) {
+            own_clock = ff->domain->source->origin_signal;
+            if (own_clock.empty()) own_clock = ff->domain->source->name;
+        }
+
+        for (auto& fanin : ff->fanin_signals) {
+            // Skip the FF's own clock (that's normal, not a data-path issue)
+            if (!own_clock.empty() && fanin == own_clock) continue;
+
+            if (clock_names.count(fanin) > 0) {
+                // Clock signal used as data input
+                CrossingReport report;
+                report.source_domain = nullptr;
+                report.dest_domain = ff->domain;
+                report.source_signal = fanin;
+                report.dest_signal = ff->hier_path;
+                report.sync_type = SyncType::None;
+                report.category = ViolationCategory::Caution;
+                report.severity = Severity::Medium;
+                report.id = "CAUTION-" + std::to_string(++caution_counter_);
+                report.rule = "Ac_cdc09";
+                report.recommendation = "[Ac_cdc09] Clock signal used as data input";
+                crossings_.push_back(std::move(report));
+                break; // one report per FF
+            }
+        }
+    }
+}
+
+void SyncVerifier::detectMultiDomainCrossing() {
+    // Group crossings by source_signal
+    std::unordered_map<std::string, std::vector<size_t>> source_groups;
+    for (size_t i = 0; i < crossings_.size(); ++i) {
+        auto& c = crossings_[i];
+        if (!c.dest_domain) continue;
+        // Only consider actual domain crossings (not clock-as-data etc.)
+        if (!c.source_domain) continue;
+        source_groups[c.source_signal].push_back(i);
+    }
+
+    for (auto& [signal, indices] : source_groups) {
+        // Collect unique dest domain names
+        std::unordered_set<std::string> dest_domains;
+        for (auto idx : indices) {
+            if (crossings_[idx].dest_domain)
+                dest_domains.insert(crossings_[idx].dest_domain->canonical_name);
+        }
+
+        if (dest_domains.size() < 2) continue;
+
+        // Same source crosses to 2+ different dest domains
+        for (auto idx : indices) {
+            auto& c = crossings_[idx];
+            if (c.category == ViolationCategory::Waived) continue;
+            // For INFO crossings, upgrade to CAUTION
+            if (c.category == ViolationCategory::Info) {
+                c.category = ViolationCategory::Caution;
+                c.severity = Severity::Medium;
+                c.id = "CAUTION-" + std::to_string(++caution_counter_);
+            }
+            // Annotate with Ac_cdc11 (supplement, don't replace existing rule)
+            if (c.rule.empty()) c.rule = "Ac_cdc11";
+            if (c.recommendation.empty())
+                c.recommendation = "[Ac_cdc11] Signal crosses to multiple clock domains independently";
+            else
+                c.recommendation += ". [Ac_cdc11] Signal crosses to multiple clock domains independently";
+        }
+    }
+}
+
+void SyncVerifier::detectQuasiStaticSignals() {
+    // For each crossing, check if the source signal might be quasi-static
+    // Heuristic: signal name contains cfg_, config_, mode_, static_
+    // or the source FF has no dynamic data input (empty fanin)
+    size_t n = crossings_.size(); // snapshot size to avoid iterating new entries
+    for (size_t ci = 0; ci < n; ++ci) {
+        auto& crossing = crossings_[ci];
+
+        // Extract leaf name of source signal
+        std::string src_leaf = crossing.source_signal;
+        auto dot = src_leaf.rfind('.');
+        if (dot != std::string::npos) src_leaf = src_leaf.substr(dot + 1);
+
+        std::string lower_leaf = src_leaf;
+        std::transform(lower_leaf.begin(), lower_leaf.end(),
+                       lower_leaf.begin(), ::tolower);
+
+        bool is_quasi_static = false;
+        for (auto& pat : {"cfg_", "config_", "mode_", "static_"}) {
+            if (lower_leaf.find(pat) != std::string::npos) {
+                is_quasi_static = true;
+                break;
+            }
+        }
+
+        if (!is_quasi_static) {
+            // Also check if source FF has no dynamic data input
+            auto ff_it = ff_by_path_.find(crossing.source_signal);
+            if (ff_it != ff_by_path_.end()) {
+                const FFNode* src_ff = ff_it->second;
+                if (src_ff->fanin_signals.empty()) {
+                    is_quasi_static = true;
+                }
+            }
+        }
+
+        if (is_quasi_static) {
+            // Add a separate INFO report for the quasi-static hint
+            CrossingReport report;
+            report.source_domain = crossing.source_domain;
+            report.dest_domain = crossing.dest_domain;
+            report.source_signal = crossing.source_signal;
+            report.dest_signal = crossing.dest_signal;
+            report.sync_type = crossing.sync_type;
+            report.category = ViolationCategory::Info;
+            report.severity = Severity::Info;
+            report.id = "INFO-" + std::to_string(++info_counter_);
+            report.rule = "Ac_cdc12";
+            report.recommendation = "[Ac_cdc12] Potentially quasi-static signal "
+                "-- verify data stability before use";
+            crossings_.push_back(std::move(report));
         }
     }
 }

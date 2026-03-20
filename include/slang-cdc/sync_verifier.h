@@ -14,7 +14,8 @@ class SyncVerifier {
 public:
     SyncVerifier(std::vector<CrossingReport>& crossings,
                  const std::vector<std::unique_ptr<FFNode>>& ff_nodes,
-                 const std::vector<FFEdge>& edges);
+                 const std::vector<FFEdge>& edges,
+                 const ClockDatabase* clock_db = nullptr);
 
     void analyze();
 
@@ -26,6 +27,7 @@ private:
     std::vector<CrossingReport>& crossings_;
     const std::vector<std::unique_ptr<FFNode>>& ff_nodes_;
     const std::vector<FFEdge>& edges_;
+    const ClockDatabase* clock_db_ = nullptr;
 
     /// Check if dest FF is the start of a 2-FF or 3-FF sync chain
     SyncType detectSyncPattern(const FFNode* dest_ff) const;
@@ -74,6 +76,15 @@ private:
     /// Limitation: fanin-based shift/negate detection is heuristic and may have
     /// false positives/negatives.
     void detectJohnsonCounter();
+
+    /// Post-processing: detect clock signal used as data input [Ac_cdc09]
+    void detectClockAsData();
+
+    /// Post-processing: detect same signal crossing to multiple domains [Ac_cdc11]
+    void detectMultiDomainCrossing();
+
+    /// Post-processing: detect quasi-static signals [Ac_cdc12]
+    void detectQuasiStaticSignals();
 
     int info_counter_ = 0;
     int caution_counter_ = 0;

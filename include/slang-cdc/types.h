@@ -142,6 +142,7 @@ struct CrossingReport {
     std::vector<std::string> path;
     SyncType sync_type;
     std::string recommendation;
+    std::string rule;  // SpyGlass-compatible rule ID, e.g. "Ac_cdc01"
 };
 
 // ─── Clock Database: owns all clock-related objects ───

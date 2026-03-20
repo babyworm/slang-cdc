@@ -280,6 +280,9 @@ void ReportGenerator::generateJSON(const std::filesystem::path& output_path) con
         out << ", \"severity\": \"" << severityToString(c.severity) << "\"";
         out << ", \"sync_type\": \"" << syncTypeToString(c.sync_type) << "\"";
 
+        // Rule
+        out << ", \"rule\": \"" << jsonEscape(c.rule) << "\"";
+
         // Recommendation
         out << ", \"recommendation\": \"" << jsonEscape(c.recommendation) << "\"";
 
