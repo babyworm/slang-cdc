@@ -72,8 +72,12 @@ if(SLANG_CDC_BUILD_TESTS)
         tests/test_clock_yaml.cpp
         tests/test_final_features.cpp
         tests/test_coverage_gaps.cpp
+        tests/test_integration_fixtures.cpp
     )
     target_link_libraries(slang-cdc-tests PRIVATE slang-cdc-lib Catch2::Catch2WithMain)
+    target_compile_definitions(slang-cdc-tests PRIVATE
+        SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
+    )
     add_test(NAME slang-cdc-tests COMMAND slang-cdc-tests)
 endif()
 
