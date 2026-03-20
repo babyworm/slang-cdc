@@ -23,6 +23,7 @@ private:
     int violation_counter_ = 0;
     int caution_counter_ = 0;
     int convention_counter_ = 0;
+    int info_counter_ = 0;
 };
 
 } // namespace slang_cdc

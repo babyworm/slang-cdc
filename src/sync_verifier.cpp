@@ -443,11 +443,9 @@ void SyncVerifier::detectHandshakePattern() {
             // Strong match: req/ack naming
             for (auto idx : indices) handshake_indices.insert(idx);
             for (auto idx : it->second) handshake_indices.insert(idx);
-        } else {
-            // General bidirectional sync: also classify as handshake
-            for (auto idx : indices) handshake_indices.insert(idx);
-            for (auto idx : it->second) handshake_indices.insert(idx);
         }
+        // Removed: overly aggressive else branch that classified any
+        // bidirectional synced crossing as Handshake without req/ack evidence
     }
 
     for (auto idx : handshake_indices) {

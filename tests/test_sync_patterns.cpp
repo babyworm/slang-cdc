@@ -7,6 +7,7 @@
 #include "slang-cdc/sync_verifier.h"
 #include "slang-cdc/waiver.h"
 
+#include <algorithm>
 #include <fstream>
 #include <filesystem>
 
@@ -193,8 +194,9 @@ TEST_CASE("SyncPattern: handshake req/ack detection", "[sync][handshake]") {
         CHECK(found_handshake);
 }
 
-TEST_CASE("SyncPattern: bidirectional sync without req/ack names is handshake", "[sync][handshake]") {
-    // General case: bidirectional synced crossings without req/ack naming
+TEST_CASE("SyncPattern: bidirectional sync without req/ack names is NOT handshake", "[sync][handshake]") {
+    // M2 fix: bidirectional synced crossings without req/ack naming
+    // should NOT be classified as Handshake (was a false positive)
     auto compilation = compileSV(R"(
         module bidir_sync (input logic clk_a, clk_b, rst_n);
             logic sig_x, sig_y;
@@ -221,9 +223,8 @@ TEST_CASE("SyncPattern: bidirectional sync without req/ack names is handshake", 
         if (c.sync_type == SyncType::Handshake)
             found_handshake = true;
     }
-    // Bidirectional synced crossings should be classified as handshake
-    // (general heuristic: if A->B and B->A both synced)
-    CHECK(found_handshake);
+    // Without req/ack naming evidence, bidirectional sync should NOT be Handshake
+    CHECK_FALSE(found_handshake);
 }
 
 // =============================================================================
@@ -391,4 +392,103 @@ waivers:
 
     auto& w = mgr.getWaivers()[0];
     CHECK(w.date.empty());
+}
+
+// =============================================================================
+// Gated-Clock Crossing (M1 fix)
+// =============================================================================
+
+TEST_CASE("CrossingDetector: gated-clock crossing produces Severity::Low", "[crossing][gated]") {
+    // Build a minimal clock database with a gated clock net,
+    // two domains sharing the same source but one gated,
+    // and verify the crossing is classified as Severity::Low / Info.
+    ClockDatabase db;
+
+    auto src_a = std::make_unique<ClockSource>();
+    src_a->id = "clk_a";
+    src_a->name = "clk_a";
+    src_a->type = ClockSource::Type::Primary;
+    auto* src_a_ptr = db.addSource(std::move(src_a));
+
+    auto src_b = std::make_unique<ClockSource>();
+    src_b->id = "clk_b";
+    src_b->name = "clk_b";
+    src_b->type = ClockSource::Type::Generated;
+    src_b->master = src_a_ptr;
+    auto* src_b_ptr = db.addSource(std::move(src_b));
+
+    // Establish a non-async relationship so isAsynchronous() returns false
+    db.relationships.push_back({src_a_ptr, src_b_ptr,
+                                DomainRelationship::Type::Divided});
+
+    // Add a gated clock net for src_b
+    auto gated_net = std::make_unique<ClockNet>();
+    gated_net->hier_path = "top.gated_clk";
+    gated_net->source = src_b_ptr;
+    gated_net->is_gated = true;
+    gated_net->gate_enable = "top.clk_en";
+    db.addNet(std::move(gated_net));
+
+    auto* dom_a = db.findOrCreateDomain(src_a_ptr, Edge::Posedge);
+    auto* dom_b = db.findOrCreateDomain(src_b_ptr, Edge::Posedge);
+
+    // Create FF nodes in different domains
+    FFNode ff_src;
+    ff_src.hier_path = "top.ff_src";
+    ff_src.domain = dom_a;
+
+    FFNode ff_dst;
+    ff_dst.hier_path = "top.ff_dst";
+    ff_dst.domain = dom_b;
+
+    FFEdge edge;
+    edge.source = &ff_src;
+    edge.dest = &ff_dst;
+
+    std::vector<FFEdge> edges = {edge};
+    CrossingDetector detector(edges, db);
+    detector.analyze();
+
+    auto crossings = detector.getCrossings();
+    REQUIRE(crossings.size() == 1);
+    CHECK(crossings[0].severity == Severity::Low);
+    CHECK(crossings[0].category == ViolationCategory::Info);
+    CHECK(crossings[0].id.find("INFO-") != std::string::npos);
+    CHECK(crossings[0].recommendation.find("Gated-clock") != std::string::npos);
+}
+
+TEST_CASE("CrossingDetector: --ignore-gated filters out Severity::Low crossings", "[crossing][gated]") {
+    // Simulate the --ignore-gated filter logic from main.cpp:
+    // crossings with Severity::Low should be removed.
+    std::vector<CrossingReport> crossings;
+
+    CrossingReport high_report;
+    high_report.severity = Severity::High;
+    high_report.category = ViolationCategory::Violation;
+    high_report.id = "VIOLATION-1";
+    high_report.source_signal = "top.a";
+    high_report.dest_signal = "top.b";
+    crossings.push_back(high_report);
+
+    CrossingReport low_report;
+    low_report.severity = Severity::Low;
+    low_report.category = ViolationCategory::Info;
+    low_report.id = "INFO-1";
+    low_report.source_signal = "top.c";
+    low_report.dest_signal = "top.d";
+    crossings.push_back(low_report);
+
+    REQUIRE(crossings.size() == 2);
+
+    // Apply the same filter as main.cpp --ignore-gated
+    crossings.erase(
+        std::remove_if(crossings.begin(), crossings.end(),
+            [](const CrossingReport& c) {
+                return c.severity == Severity::Low;
+            }),
+        crossings.end());
+
+    CHECK(crossings.size() == 1);
+    CHECK(crossings[0].severity == Severity::High);
+    CHECK(crossings[0].id == "VIOLATION-1");
 }

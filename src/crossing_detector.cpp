@@ -32,6 +32,17 @@ void CrossingDetector::analyze() {
         bool is_async = clock_db_.isAsynchronous(
             edge.source->domain, edge.dest->domain);
 
+        // Check if this is a gated-clock crossing
+        bool is_gated = false;
+        for (auto& net : clock_db_.nets) {
+            if (net->is_gated &&
+                (net->source == edge.source->domain->source ||
+                 net->source == edge.dest->domain->source)) {
+                is_gated = true;
+                break;
+            }
+        }
+
         if (is_async) {
             report.severity = Severity::High;
             report.category = ViolationCategory::Violation;
@@ -39,6 +50,12 @@ void CrossingDetector::analyze() {
             report.rule = "Ac_cdc01";
             report.recommendation = "[Ac_cdc01] Insert 2-FF synchronizer at " +
                 edge.dest->hier_path;
+        } else if (is_gated && !is_async) {
+            report.severity = Severity::Low;
+            report.category = ViolationCategory::Info;
+            report.id = "INFO-" + std::to_string(++info_counter_);
+            report.rule = "Ac_cdc01";
+            report.recommendation = "[Ac_cdc01] Gated-clock crossing — verify clock gating is safe";
         } else {
             // Related domains (divided, gated) -- lower severity
             report.severity = Severity::Medium;

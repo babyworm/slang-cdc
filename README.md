@@ -103,7 +103,7 @@ INSTALL_PREFIX=/usr/local make install  # custom prefix
 ### Test
 
 ```bash
-make test     # 171 tests, 515 assertions
+make test     # 257 tests, ~720 assertions
 ```
 
 ## Usage
@@ -234,6 +234,12 @@ Report Generation (Markdown + JSON + SDC + DOT + Waiver template)
 | `CONVENTION` | Non-standard clock/reset naming | Not counted |
 | `INFO` | Properly synchronized crossing | Not counted |
 | `WAIVED` | User-waived crossing | Not counted |
+
+## Known Limitations
+
+- SDC period data is used for report output only, not for crossing classification
+- Cross-instance assign chains are partially supported
+- Incremental analysis is not yet implemented
 
 ## License
 
