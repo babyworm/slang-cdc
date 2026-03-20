@@ -181,6 +181,12 @@ int main(int argc, char** argv) {
     if (!quiet)
         std::cout << "  FFs detected: " << classifier.getFFNodes().size() << "\n";
 
+    // Print FF classification errors (e.g., multi-clock sensitivity)
+    for (auto& err : classifier.getErrors()) {
+        std::cerr << "slang-cdc: error: " << err.hier_path << ": "
+                  << err.message << "\n";
+    }
+
     // ─── Pass 3: Connectivity Graph ───
     slang_cdc::ConnectivityBuilder connectivity(*compilation, classifier.getFFNodes());
     connectivity.analyze();

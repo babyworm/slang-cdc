@@ -4,6 +4,10 @@
 #include "slang/ast/TimingControl.h"
 #include "slang/ast/statements/MiscStatements.h"
 #include "slang/ast/expressions/MiscExpressions.h"
+#include "slang/ast/expressions/AssignmentExpressions.h"
+#include "slang/ast/expressions/OperatorExpressions.h"
+#include "slang/ast/expressions/ConversionExpression.h"
+#include "slang/ast/statements/ConditionalStatements.h"
 #include "slang/ast/SemanticFacts.h"
 #include "slang/ast/Expression.h"
 #include "slang/ast/Statement.h"
@@ -30,6 +34,10 @@ void ClockTreeAnalyzer::analyze() {
 
     // Phase 1b: Propagate through hierarchy
     propagateFromRoot();
+
+    // Phase 1b+: Detect clock dividers and clock gates
+    detectClockDividers();
+    detectClockGates();
 
     // Phase 1c: Register relationships
     if (sdc_) {
@@ -111,11 +119,19 @@ void ClockTreeAnalyzer::autoDetectClockPorts() {
 
 // ── Phase 1b: Hierarchical propagation ──
 
-// Extract signal name from an expression (NamedValueExpression)
+// Extract signal name from an expression (NamedValueExpression or Assignment for output ports)
 static std::string extractSignalNameFromExpr(const slang::ast::Expression& expr) {
     if (expr.kind == slang::ast::ExpressionKind::NamedValue) {
         auto& named = expr.as<slang::ast::NamedValueExpression>();
         return std::string(named.symbol.name);
+    }
+    // Output port connections are modeled as Assignment: wire = port_internal
+    if (expr.kind == slang::ast::ExpressionKind::Assignment) {
+        auto& assign = expr.as<slang::ast::AssignmentExpression>();
+        if (assign.left().kind == slang::ast::ExpressionKind::NamedValue) {
+            return std::string(
+                assign.left().as<slang::ast::NamedValueExpression>().symbol.name);
+        }
     }
     return "";
 }
@@ -285,6 +301,278 @@ void ClockTreeAnalyzer::collectSensitivityClocks(
                 local_nets[sig_name] = net_ptr;
             }
         }
+    }
+}
+
+// ── Phase 1b+: Clock divider detection ──
+
+void ClockTreeAnalyzer::detectClockDividers() {
+    auto& root = compilation_.getRoot();
+    for (auto& member : root.members()) {
+        if (member.kind != slang::ast::SymbolKind::Instance) continue;
+        auto& inst = member.as<slang::ast::InstanceSymbol>();
+        detectClockDividersInInstance(inst, std::string(inst.name));
+    }
+}
+
+void ClockTreeAnalyzer::detectClockDividersInInstance(
+    const slang::ast::InstanceSymbol& inst,
+    const std::string& inst_path)
+{
+    for (auto& member : inst.body.members()) {
+        if (member.kind == slang::ast::SymbolKind::ProceduralBlock) {
+            auto& block = member.as<slang::ast::ProceduralBlockSymbol>();
+            if (block.procedureKind != slang::ast::ProceduralBlockKind::AlwaysFF &&
+                block.procedureKind != slang::ast::ProceduralBlockKind::Always)
+                continue;
+
+            auto& body = block.getBody();
+            if (body.kind != slang::ast::StatementKind::Timed) continue;
+            auto& timed = body.as<slang::ast::TimedStatement>();
+
+            // Extract the clock signal from sensitivity list
+            std::string clock_name;
+            auto& timing = timed.timing;
+            if (timing.kind == slang::ast::TimingControlKind::SignalEvent) {
+                auto& sec = timing.as<slang::ast::SignalEventControl>();
+                clock_name = extractSignalNameFromExpr(sec.expr);
+            } else if (timing.kind == slang::ast::TimingControlKind::EventList) {
+                auto& list = timing.as<slang::ast::EventListControl>();
+                for (auto* ev : list.events) {
+                    if (!ev || ev->kind != slang::ast::TimingControlKind::SignalEvent)
+                        continue;
+                    auto& sec = ev->as<slang::ast::SignalEventControl>();
+                    std::string sig = extractSignalNameFromExpr(sec.expr);
+                    if (isClockName(sig)) {
+                        clock_name = sig;
+                        break;
+                    }
+                }
+            }
+
+            if (clock_name.empty()) continue;
+
+            // Look for toggle pattern: q <= ~q or q <= !q
+            // Walk the inner statement for assignments where LHS == ~RHS
+            checkTogglePattern(timed.stmt, clock_name, inst_path);
+        }
+
+        // Recurse into child instances
+        if (member.kind == slang::ast::SymbolKind::Instance) {
+            auto& child = member.as<slang::ast::InstanceSymbol>();
+            std::string child_path = inst_path + "." + std::string(child.name);
+            detectClockDividersInInstance(child, child_path);
+        }
+    }
+}
+
+void ClockTreeAnalyzer::checkTogglePattern(
+    const slang::ast::Statement& stmt,
+    const std::string& clock_name,
+    const std::string& inst_path)
+{
+    using SK = slang::ast::StatementKind;
+    using EK = slang::ast::ExpressionKind;
+
+    switch (stmt.kind) {
+        case SK::ExpressionStatement: {
+            auto& exprStmt = stmt.as<slang::ast::ExpressionStatement>();
+            auto& expr = exprStmt.expr;
+            if (expr.kind != EK::Assignment) break;
+
+            auto& assign = expr.as<slang::ast::AssignmentExpression>();
+            std::string lhs = extractSignalNameFromExpr(assign.left());
+            if (lhs.empty()) break;
+
+            // Check RHS is ~lhs (unary not/bitwise not)
+            auto* rhs = &assign.right();
+            // Skip conversions
+            while (rhs->kind == EK::Conversion)
+                rhs = &rhs->as<slang::ast::ConversionExpression>().operand();
+
+            if (rhs->kind == EK::UnaryOp) {
+                auto& unary = rhs->as<slang::ast::UnaryExpression>();
+                if (unary.op == slang::ast::UnaryOperator::BitwiseNot ||
+                    unary.op == slang::ast::UnaryOperator::LogicalNot) {
+                    std::string rhs_name = extractSignalNameFromExpr(unary.operand());
+                    if (rhs_name == lhs) {
+                        // Toggle pattern found: lhs <= ~lhs
+                        // Create a generated clock source with divide_by 2
+                        ClockSource* master_src = nullptr;
+                        for (auto& src : clock_db_.sources) {
+                            if (src->origin_signal == clock_name ||
+                                src->name == clock_name) {
+                                master_src = src.get();
+                                break;
+                            }
+                        }
+
+                        // Check if already created
+                        std::string div_name = lhs + "_div2";
+                        bool already_exists = false;
+                        for (auto& src : clock_db_.sources) {
+                            if (src->name == div_name) {
+                                already_exists = true;
+                                break;
+                            }
+                        }
+                        if (already_exists) break;
+
+                        auto src = std::make_unique<ClockSource>();
+                        src->id = "divider_" + lhs;
+                        src->name = div_name;
+                        src->type = ClockSource::Type::Generated;
+                        src->origin_signal = inst_path + "." + lhs;
+                        src->master = master_src;
+                        src->divide_by = 2;
+                        clock_db_.addSource(std::move(src));
+
+                        // Create a ClockNet for the divided clock
+                        auto net = std::make_unique<ClockNet>();
+                        net->hier_path = inst_path + "." + lhs;
+                        net->source = clock_db_.sources.back().get();
+                        net->is_gated = false;
+                        clock_db_.addNet(std::move(net));
+                    }
+                }
+            }
+            break;
+        }
+        case SK::Block: {
+            auto& block = stmt.as<slang::ast::BlockStatement>();
+            checkTogglePattern(block.body, clock_name, inst_path);
+            break;
+        }
+        case SK::List: {
+            auto& list = stmt.as<slang::ast::StatementList>();
+            for (auto* child : list.list)
+                if (child) checkTogglePattern(*child, clock_name, inst_path);
+            break;
+        }
+        case SK::Conditional: {
+            auto& cond = stmt.as<slang::ast::ConditionalStatement>();
+            checkTogglePattern(cond.ifTrue, clock_name, inst_path);
+            if (cond.ifFalse)
+                checkTogglePattern(*cond.ifFalse, clock_name, inst_path);
+            break;
+        }
+        default: break;
+    }
+}
+
+// ── Phase 1b+: Clock gate (ICG) detection ──
+
+static bool isICGName(const std::string& name) {
+    std::string upper = name;
+    std::transform(upper.begin(), upper.end(), upper.begin(), ::toupper);
+    for (auto& pat : {"ICG", "CLKGATE", "CG", "CLOCK_GATE"}) {
+        std::string upat(pat);
+        if (upper.find(upat) != std::string::npos) return true;
+    }
+    // Also check lowercase
+    std::string lower = name;
+    std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+    if (lower.find("clock_gate") != std::string::npos) return true;
+    return false;
+}
+
+void ClockTreeAnalyzer::detectClockGates() {
+    auto& root = compilation_.getRoot();
+    for (auto& member : root.members()) {
+        if (member.kind != slang::ast::SymbolKind::Instance) continue;
+        auto& inst = member.as<slang::ast::InstanceSymbol>();
+        detectClockGatesInInstance(inst, std::string(inst.name));
+    }
+}
+
+void ClockTreeAnalyzer::detectClockGatesInInstance(
+    const slang::ast::InstanceSymbol& inst,
+    const std::string& inst_path)
+{
+    for (auto& member : inst.body.members()) {
+        if (member.kind != slang::ast::SymbolKind::Instance) continue;
+        auto& child = member.as<slang::ast::InstanceSymbol>();
+        std::string child_path = inst_path + "." + std::string(child.name);
+
+        // Check definition name for ICG patterns
+        auto& def = child.getDefinition();
+        std::string def_name(def.name);
+
+        if (isICGName(def_name)) {
+            // Find the clock output port and mark its net as gated
+            std::string enable_signal;
+            std::string clock_out_signal;
+
+            for (auto* conn : child.getPortConnections()) {
+                if (!conn) continue;
+                std::string port_name(conn->port.name);
+                std::string lower_port = port_name;
+                std::transform(lower_port.begin(), lower_port.end(),
+                               lower_port.begin(), ::tolower);
+
+                auto* expr = conn->getExpression();
+                std::string actual;
+                if (expr) actual = extractSignalNameFromExpr(*expr);
+
+                if (lower_port.find("en") != std::string::npos && !actual.empty())
+                    enable_signal = actual;
+                if ((lower_port.find("clk") != std::string::npos ||
+                     lower_port.find("ck") != std::string::npos) &&
+                    lower_port.find("out") != std::string::npos &&
+                    !actual.empty())
+                    clock_out_signal = actual;
+                // Also match Q or GCLK output patterns
+                if ((lower_port == "q" || lower_port == "gclk" ||
+                     lower_port == "clk_out" || lower_port == "eclk") &&
+                    !actual.empty())
+                    clock_out_signal = actual;
+            }
+
+            // Mark clock nets as gated
+            if (!clock_out_signal.empty()) {
+                for (auto& net : clock_db_.nets) {
+                    if (net->hier_path.find(clock_out_signal) != std::string::npos) {
+                        net->is_gated = true;
+                        net->gate_enable = enable_signal;
+                    }
+                }
+                // Also create a gated clock net if not found
+                auto net = std::make_unique<ClockNet>();
+                net->hier_path = inst_path + "." + clock_out_signal;
+                net->is_gated = true;
+                net->gate_enable = enable_signal;
+                // Try to find the source from input clock port
+                for (auto* conn : child.getPortConnections()) {
+                    if (!conn) continue;
+                    std::string port_name(conn->port.name);
+                    std::string lower_port = port_name;
+                    std::transform(lower_port.begin(), lower_port.end(),
+                                   lower_port.begin(), ::tolower);
+                    if ((lower_port.find("clk") != std::string::npos ||
+                         lower_port.find("ck") != std::string::npos) &&
+                        lower_port.find("out") == std::string::npos &&
+                        lower_port != "q" && lower_port != "gclk" &&
+                        lower_port != "eclk") {
+                        auto* expr = conn->getExpression();
+                        if (expr) {
+                            std::string in_clk = extractSignalNameFromExpr(*expr);
+                            for (auto& src : clock_db_.sources) {
+                                if (src->origin_signal == in_clk ||
+                                    src->name == in_clk) {
+                                    net->source = src.get();
+                                    break;
+                                }
+                            }
+                        }
+                        break;
+                    }
+                }
+                clock_db_.addNet(std::move(net));
+            }
+        }
+
+        // Recurse
+        detectClockGatesInInstance(child, child_path);
     }
 }
 

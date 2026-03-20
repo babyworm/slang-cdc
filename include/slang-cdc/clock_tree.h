@@ -3,6 +3,7 @@
 #include "slang-cdc/types.h"
 #include "slang-cdc/sdc_parser.h"
 #include "slang/ast/Compilation.h"
+#include "slang/ast/Statement.h"
 #include "slang/ast/symbols/InstanceSymbols.h"
 #include "slang/ast/symbols/PortSymbols.h"
 
@@ -68,6 +69,27 @@ private:
         const slang::ast::InstanceSymbol& inst,
         std::unordered_map<std::string, ClockNet*>& local_nets,
         const std::string& inst_path);
+
+    // ── Phase 1b+: Clock divider detection ──
+
+    /// Detect clock dividers: always_ff with q <= ~q toggle pattern
+    void detectClockDividers();
+
+    /// Recursive helper for clock divider detection
+    void detectClockDividersInInstance(const slang::ast::InstanceSymbol& inst,
+                                       const std::string& inst_path);
+
+    /// Check a statement for toggle pattern (q <= ~q)
+    void checkTogglePattern(const slang::ast::Statement& stmt,
+                            const std::string& clock_name,
+                            const std::string& inst_path);
+
+    /// Detect ICG (integrated clock gating) cells by module name pattern
+    void detectClockGates();
+
+    /// Recursive helper for clock gate detection
+    void detectClockGatesInInstance(const slang::ast::InstanceSymbol& inst,
+                                    const std::string& inst_path);
 
     // ── Phase 1c: Relationship registration ──
 

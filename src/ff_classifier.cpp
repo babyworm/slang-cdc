@@ -6,6 +6,7 @@
 #include "slang/ast/symbols/InstanceSymbols.h"
 #include "slang/ast/symbols/BlockSymbols.h"
 #include "slang/ast/symbols/VariableSymbols.h"
+#include "slang/ast/symbols/AttributeSymbol.h"
 #include "slang/ast/TimingControl.h"
 #include "slang/ast/statements/MiscStatements.h"
 #include "slang/ast/expressions/MiscExpressions.h"
@@ -67,8 +68,19 @@ struct SensitivityInfo {
     ResetSignal::Polarity reset_polarity = ResetSignal::Polarity::ActiveLow;
 };
 
-static SensitivityInfo classifyEvents(const std::vector<EventInfo>& events) {
+static SensitivityInfo classifyEvents(const std::vector<EventInfo>& events,
+                                      bool* multi_clock_error = nullptr) {
     SensitivityInfo info;
+
+    // Count clock-like signals in sensitivity list
+    int clock_count = 0;
+    for (auto& ev : events) {
+        if (ClockTreeAnalyzer::isClockName(ev.signal_name) &&
+            !ClockTreeAnalyzer::isResetName(ev.signal_name))
+            clock_count++;
+    }
+    if (multi_clock_error)
+        *multi_clock_error = (clock_count >= 2);
 
     // Heuristic: in always_ff @(posedge clk or negedge rst_n),
     // the clock is the posedge signal with a clock-like name,
@@ -78,8 +90,10 @@ static SensitivityInfo classifyEvents(const std::vector<EventInfo>& events) {
         bool looks_like_reset = ClockTreeAnalyzer::isResetName(ev.signal_name);
 
         if (looks_like_clock && !looks_like_reset) {
-            info.clock_name = ev.signal_name;
-            info.clock_edge = ev.is_posedge ? Edge::Posedge : Edge::Negedge;
+            if (info.clock_name.empty()) {
+                info.clock_name = ev.signal_name;
+                info.clock_edge = ev.is_posedge ? Edge::Posedge : Edge::Negedge;
+            }
         }
         else if (looks_like_reset && !looks_like_clock) {
             info.reset_name = ev.signal_name;
@@ -167,16 +181,42 @@ static void collectAssignedVars(const slang::ast::Statement& stmt,
     }
 }
 
+// Forward declarations
+static void processInstance(const slang::ast::InstanceSymbol& inst,
+                            const std::string& prefix,
+                            ClockDatabase& clock_db,
+                            std::vector<std::unique_ptr<FFNode>>& ff_nodes,
+                            std::vector<LatchWarning>& latch_warnings,
+                            std::vector<FFClassificationError>& errors);
+
+static void processMembers(const slang::ast::Scope& scope,
+                           const std::string& inst_path,
+                           ClockDatabase& clock_db,
+                           std::vector<std::unique_ptr<FFNode>>& ff_nodes,
+                           std::vector<LatchWarning>& latch_warnings,
+                           std::vector<FFClassificationError>& errors);
+
 // Walk an instance and extract FFs from always_ff blocks
 static void processInstance(const slang::ast::InstanceSymbol& inst,
                             const std::string& prefix,
                             ClockDatabase& clock_db,
                             std::vector<std::unique_ptr<FFNode>>& ff_nodes,
-                            std::vector<LatchWarning>& latch_warnings) {
+                            std::vector<LatchWarning>& latch_warnings,
+                            std::vector<FFClassificationError>& errors) {
     std::string inst_path = prefix.empty() ?
         std::string(inst.name) : prefix + "." + std::string(inst.name);
 
-    for (auto& member : inst.body.members()) {
+    processMembers(inst.body, inst_path, clock_db, ff_nodes, latch_warnings, errors);
+}
+
+// Walk members of any scope (InstanceBody, GenerateBlock, etc.)
+static void processMembers(const slang::ast::Scope& scope,
+                           const std::string& inst_path,
+                           ClockDatabase& clock_db,
+                           std::vector<std::unique_ptr<FFNode>>& ff_nodes,
+                           std::vector<LatchWarning>& latch_warnings,
+                           std::vector<FFClassificationError>& errors) {
+    for (auto& member : scope.members()) {
         if (member.kind == slang::ast::SymbolKind::ProceduralBlock) {
             auto& block = member.as<slang::ast::ProceduralBlockSymbol>();
 
@@ -207,7 +247,22 @@ static void processInstance(const slang::ast::InstanceSymbol& inst,
 
             // Extract clock and reset from sensitivity list
             auto events = extractEvents(*timing);
-            auto sens = classifyEvents(events);
+            bool multi_clock = false;
+            auto sens = classifyEvents(events, &multi_clock);
+
+            if (multi_clock) {
+                std::string clock_names;
+                for (auto& ev : events) {
+                    if (ClockTreeAnalyzer::isClockName(ev.signal_name) &&
+                        !ClockTreeAnalyzer::isResetName(ev.signal_name)) {
+                        if (!clock_names.empty()) clock_names += ", ";
+                        clock_names += ev.signal_name;
+                    }
+                }
+                errors.push_back({inst_path,
+                    "Multiple clock edges in sensitivity list: " + clock_names +
+                    ". FF may have ambiguous clocking."});
+            }
 
             if (sens.clock_name.empty()) continue;
 
@@ -227,7 +282,11 @@ static void processInstance(const slang::ast::InstanceSymbol& inst,
             //    port connections with a different name (e.g., proc_clk <- sys_clk).
             //    Search clock nets by matching instance + clock name patterns.
             if (!domain) {
-                std::string short_path = std::string(inst.name) + "." + sens.clock_name;
+                std::string inst_leaf = inst_path;
+                auto dot_pos = inst_leaf.rfind('.');
+                if (dot_pos != std::string::npos)
+                    inst_leaf = inst_leaf.substr(dot_pos + 1);
+                std::string short_path = inst_leaf + "." + sens.clock_name;
                 std::string full_path = inst_path + "." + sens.clock_name;
                 for (auto& net : clock_db.nets) {
                     if (net->hier_path == full_path ||
@@ -301,10 +360,99 @@ static void processInstance(const slang::ast::InstanceSymbol& inst,
             }
         }
 
-        // Recurse into child instances
+        // Library cell FF recognition: check instance definition name for FF patterns
         if (member.kind == slang::ast::SymbolKind::Instance) {
-            processInstance(member.as<slang::ast::InstanceSymbol>(),
-                          inst_path, clock_db, ff_nodes, latch_warnings);
+            auto& child_inst = member.as<slang::ast::InstanceSymbol>();
+            auto& def = child_inst.getDefinition();
+            std::string def_name(def.name);
+            std::string def_upper = def_name;
+            std::transform(def_upper.begin(), def_upper.end(),
+                           def_upper.begin(), ::toupper);
+
+            bool is_lib_ff = false;
+            for (auto& pat : {"DFF", "SDFF", "DFFR", "FDRE", "FD"}) {
+                std::string spat(pat);
+                if (def_upper.find(spat) != std::string::npos) {
+                    is_lib_ff = true;
+                    break;
+                }
+            }
+
+            // Also check for (* cdc_ff *) attribute
+            if (!is_lib_ff) {
+                auto attrs = child_inst.getParentScope()->getCompilation().getAttributes(child_inst);
+                for (auto* attr : attrs) {
+                    if (attr->name == "cdc_ff") {
+                        is_lib_ff = true;
+                        break;
+                    }
+                }
+            }
+
+            if (is_lib_ff) {
+                std::string child_path = inst_path + "." + std::string(child_inst.name);
+                // Try to find clock domain from port connections
+                ClockDomain* domain = nullptr;
+                for (auto* conn : child_inst.getPortConnections()) {
+                    if (!conn) continue;
+                    std::string port_name(conn->port.name);
+                    std::string lower_port = port_name;
+                    std::transform(lower_port.begin(), lower_port.end(),
+                                   lower_port.begin(), ::tolower);
+                    if (ClockTreeAnalyzer::isClockName(lower_port)) {
+                        auto* expr = conn->getExpression();
+                        if (expr) {
+                            std::string clk_sig = extractSignalName(*expr);
+                            if (!clk_sig.empty()) {
+                                for (auto& src : clock_db.sources) {
+                                    if (src->origin_signal == clk_sig ||
+                                        src->name == clk_sig) {
+                                        domain = clock_db.findOrCreateDomain(
+                                            src.get(), Edge::Posedge);
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        break;
+                    }
+                }
+
+                auto ff = std::make_unique<FFNode>();
+                ff->hier_path = child_path;
+                ff->domain = domain;
+                ff_nodes.push_back(std::move(ff));
+            } else {
+                // Recurse into child instances (non-library cells)
+                processInstance(child_inst,
+                              inst_path, clock_db, ff_nodes, latch_warnings, errors);
+            }
+        }
+
+        // Recurse into generate blocks
+        if (member.kind == slang::ast::SymbolKind::GenerateBlock) {
+            auto& gen = member.as<slang::ast::GenerateBlockSymbol>();
+            if (!gen.isUninstantiated) {
+                std::string gen_name = gen.getExternalName();
+                std::string gen_path = inst_path;
+                if (!gen_name.empty())
+                    gen_path = inst_path + "." + gen_name;
+                processMembers(gen, gen_path, clock_db, ff_nodes, latch_warnings, errors);
+            }
+        }
+
+        if (member.kind == slang::ast::SymbolKind::GenerateBlockArray) {
+            auto& arr = member.as<slang::ast::GenerateBlockArraySymbol>();
+            for (auto* entry : arr.entries) {
+                if (entry && !entry->isUninstantiated) {
+                    std::string entry_name = entry->getExternalName();
+                    if (entry_name.empty())
+                        entry_name = std::string(arr.name);
+                    std::string entry_path = inst_path + "." + entry_name;
+                    processMembers(*entry, entry_path, clock_db, ff_nodes,
+                                   latch_warnings, errors);
+                }
+            }
         }
     }
 }
@@ -315,7 +463,7 @@ void FFClassifier::analyze() {
     for (auto& member : root.members()) {
         if (member.kind == slang::ast::SymbolKind::Instance) {
             processInstance(member.as<slang::ast::InstanceSymbol>(),
-                          "", clock_db_, ff_nodes_, latch_warnings_);
+                          "", clock_db_, ff_nodes_, latch_warnings_, errors_);
         }
     }
 }
@@ -330,6 +478,10 @@ std::vector<std::unique_ptr<FFNode>> FFClassifier::releaseFFNodes() {
 
 const std::vector<LatchWarning>& FFClassifier::getLatchWarnings() const {
     return latch_warnings_;
+}
+
+const std::vector<FFClassificationError>& FFClassifier::getErrors() const {
+    return errors_;
 }
 
 } // namespace slang_cdc

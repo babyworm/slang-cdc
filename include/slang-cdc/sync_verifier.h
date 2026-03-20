@@ -56,6 +56,9 @@ private:
     /// Post-processing: detect pulse synchronizer pattern
     void detectPulseSyncPattern();
 
+    /// Post-processing: detect MUX synchronizer pattern
+    void detectMuxSyncPattern();
+
     /// Post-processing: detect fan-out before sync completion
     void detectFanoutBeforeSync();
 

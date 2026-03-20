@@ -293,6 +293,7 @@ void SyncVerifier::analyze() {
     detectGrayCodePattern();
     detectHandshakePattern();
     detectPulseSyncPattern();
+    detectMuxSyncPattern();
 
     // Phase 6: Detect fan-out before sync completion
     detectFanoutBeforeSync();
@@ -347,10 +348,33 @@ void SyncVerifier::detectGrayCodePattern() {
         for (auto& [prefix, group_indices] : prefix_groups) {
             if (group_indices.size() < 3) continue;
 
-            // All bits share prefix and all have 2-FF/3-FF sync → GrayCode
+            // Check if the leaf signal name matches FIFO pointer naming.
+            // Use only the leaf portion (after last '.') to avoid false matches
+            // from module names.
+            bool is_fifo = false;
+            std::string leaf_prefix = prefix;
+            auto last_dot = leaf_prefix.rfind('.');
+            if (last_dot != std::string::npos)
+                leaf_prefix = leaf_prefix.substr(last_dot + 1);
+            std::string lower_leaf = leaf_prefix;
+            std::transform(lower_leaf.begin(), lower_leaf.end(),
+                           lower_leaf.begin(), ::tolower);
+            for (auto& pat : {"ptr", "addr", "wr_ptr", "rd_ptr",
+                              "wptr", "rptr", "fifo"}) {
+                if (lower_leaf.find(pat) != std::string::npos) {
+                    is_fifo = true;
+                    break;
+                }
+            }
+
+            SyncType type = is_fifo ? SyncType::AsyncFIFO : SyncType::GrayCode;
+            std::string rec = is_fifo
+                ? "Async FIFO gray-coded pointer synchronizer detected."
+                : "Gray code synchronizer detected.";
+
             for (auto idx : group_indices) {
-                crossings_[idx].sync_type = SyncType::GrayCode;
-                crossings_[idx].recommendation = "Gray code synchronizer detected.";
+                crossings_[idx].sync_type = type;
+                crossings_[idx].recommendation = rec;
             }
         }
     }
@@ -460,6 +484,55 @@ void SyncVerifier::detectPulseSyncPattern() {
                 crossing.recommendation = "Pulse synchronizer detected.";
                 break;
             }
+        }
+    }
+}
+
+void SyncVerifier::detectMuxSyncPattern() {
+    // Build a set of synced source signals per dest domain for quick lookup.
+    // Key: "source_leaf|dest_domain_name"
+    std::unordered_set<std::string> synced_sources;
+    for (auto& c : crossings_) {
+        if (c.sync_type == SyncType::TwoFF || c.sync_type == SyncType::ThreeFF) {
+            if (c.dest_domain) {
+                std::string src_leaf = c.source_signal;
+                auto dot = src_leaf.rfind('.');
+                if (dot != std::string::npos)
+                    src_leaf = src_leaf.substr(dot + 1);
+                synced_sources.insert(src_leaf + "|" +
+                                      c.dest_domain->canonical_name);
+            }
+        }
+    }
+
+    for (size_t i = 0; i < crossings_.size(); ++i) {
+        auto& c = crossings_[i];
+        if (c.sync_type != SyncType::TwoFF && c.sync_type != SyncType::ThreeFF)
+            continue;
+        if (!c.dest_domain) continue;
+
+        // Find the dest FF
+        auto ff_it = ff_by_path_.find(c.dest_signal);
+        if (ff_it == ff_by_path_.end()) continue;
+        const FFNode* dest_ff = ff_it->second;
+
+        // MUX sync heuristic: dest FF has 2+ fanin signals AND one of those
+        // fanin signals appears as a synced source in another crossing to the
+        // same dest domain.
+        if (dest_ff->fanin_signals.size() < 2) continue;
+
+        bool has_synced_fanin = false;
+        for (auto& fanin : dest_ff->fanin_signals) {
+            std::string key = fanin + "|" + c.dest_domain->canonical_name;
+            if (synced_sources.count(key)) {
+                has_synced_fanin = true;
+                break;
+            }
+        }
+
+        if (has_synced_fanin) {
+            c.sync_type = SyncType::MuxSync;
+            c.recommendation = "MUX synchronizer detected: select controlled by synced signal.";
         }
     }
 }
