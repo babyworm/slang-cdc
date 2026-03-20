@@ -77,9 +77,9 @@ std::vector<std::string> SdcParser::tokenize(const std::string& line) {
     for (size_t i = 0; i < line.size(); i++) {
         char c = line[i];
         if (c == '[') bracket_depth++;
-        if (c == ']') bracket_depth--;
+        if (c == ']' && bracket_depth > 0) bracket_depth--;
         if (c == '{') brace_depth++;
-        if (c == '}') brace_depth--;
+        if (c == '}' && brace_depth > 0) brace_depth--;
 
         if (std::isspace(c) && bracket_depth == 0 && brace_depth == 0) {
             if (!current.empty()) {

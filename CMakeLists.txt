@@ -71,6 +71,7 @@ if(SLANG_CDC_BUILD_TESTS)
         tests/test_sync_patterns.cpp
         tests/test_clock_yaml.cpp
         tests/test_final_features.cpp
+        tests/test_coverage_gaps.cpp
     )
     target_link_libraries(slang-cdc-tests PRIVATE slang-cdc-lib Catch2::Catch2WithMain)
     add_test(NAME slang-cdc-tests COMMAND slang-cdc-tests)
