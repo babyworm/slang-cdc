@@ -1,0 +1,87 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact: slang-cdc-linux-x86_64
+            cmake_extra: ""
+          - os: macos-latest
+            artifact: slang-cdc-macos-arm64
+            cmake_extra: ""
+          - os: windows-latest
+            artifact: slang-cdc-windows-x86_64
+            cmake_extra: ""
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install dependencies (Ubuntu)
+      if: runner.os == 'Linux'
+      run: sudo apt-get update && sudo apt-get install -y cmake python3
+
+    - name: Configure
+      run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DSLANG_CDC_BUILD_TESTS=OFF
+
+    - name: Build
+      shell: bash
+      run: |
+        if [ "$RUNNER_OS" = "Windows" ]; then
+          cmake --build build --config Release -j $NUMBER_OF_PROCESSORS
+        else
+          cmake --build build -j$(nproc 2>/dev/null || sysctl -n hw.ncpu)
+        fi
+
+    - name: Package (Unix)
+      if: runner.os != 'Windows'
+      run: |
+        mkdir -p dist
+        cp build/slang-cdc dist/
+        strip dist/slang-cdc
+        cd dist && tar czf ../${{ matrix.artifact }}.tar.gz slang-cdc
+
+    - name: Package (Windows)
+      if: runner.os == 'Windows'
+      shell: bash
+      run: |
+        mkdir -p dist
+        cp build/Release/slang-cdc.exe dist/
+        cd dist && 7z a ../${{ matrix.artifact }}.zip slang-cdc.exe
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.artifact }}
+        path: |
+          ${{ matrix.artifact }}.tar.gz
+          ${{ matrix.artifact }}.zip
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+
+    - name: Create release
+      uses: softprops/action-gh-release@v2
+      with:
+        generate_release_notes: true
+        files: |
+          artifacts/**/*.tar.gz
+          artifacts/**/*.zip
