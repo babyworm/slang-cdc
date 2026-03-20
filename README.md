@@ -16,12 +16,17 @@ CDC bugs cause non-deterministic metastability failures that are nearly impossib
 - Clock source auto-detection from port naming patterns
 - SDC constraint parsing (`create_clock`, `create_generated_clock`, `set_clock_groups`)
 - YAML clock specification (`--clock-yaml`)
+- PLL/MMCM/DCM module recognition
+- Clock divider and clock gate (ICG) detection
 - Clock propagation tracking through module hierarchy (same source, different names)
 - Async reset domain tracking
 
 ### FF Classification & Connectivity
 - `always_ff` and legacy `always @(posedge)` FF detection
+- Library cell FF recognition (DFF, SDFF, FDRE patterns)
 - `always_latch` flagged as warning
+- Multi-clock edge FF flagged as error
+- Generate block support
 - Inter-module FF-to-FF connectivity through port connections
 - Combinational path tracking (continuous `assign` resolution)
 - Fan-in signal collection per FF
@@ -30,7 +35,10 @@ CDC bugs cause non-deterministic metastability failures that are nearly impossib
 - 2-FF / 3-FF synchronizer chain recognition
 - Gray code pattern (multi-bit with per-bit sync)
 - Handshake (REQ/ACK) bidirectional sync pattern
+- Async FIFO (gray-coded pointer sync)
+- MUX synchronizer (synced select signal)
 - Pulse synchronizer (toggle + edge detect)
+- Johnson counter recognition (valid non-power-of-2 technique)
 - Configurable required sync stages (`--sync-stages`)
 
 ### Quality Checks
@@ -38,15 +46,17 @@ CDC bugs cause non-deterministic metastability failures that are nearly impossib
 - Combinational logic before sync FF (glitch risk)
 - Fan-out before sync completion
 - Reset synchronizer verification (async assert, sync deassert)
+- Non-power-of-2 FIFO depth warning
 
 ### Reporting & Integration
-- Markdown, JSON, SDC, and DOT (Graphviz) output formats
+- Markdown, JSON, SDC, DOT (Graphviz), and waiver template output
 - Waiver mechanism (YAML) with exact match and glob patterns
 - VIOLATION / CAUTION / CONVENTION / INFO / WAIVED categories
 - Exit code = violation count (CI compatible, capped at 255)
 - `--strict` mode (CAUTION counted as VIOLATION)
+- GitHub Actions CI workflow included
 
-## Quick Start
+## Build
 
 ### Prerequisites
 
@@ -54,56 +64,58 @@ CDC bugs cause non-deterministic metastability failures that are nearly impossib
 - CMake 3.20+
 - Python 3 (required by slang code generation)
 
-### Build
+### Build from source
 
 ```bash
 git clone https://github.com/babyworm/slang-cdc.git
 cd slang-cdc
-make build    # fetches slang v10.0 automatically via CMake FetchContent
+make build
 ```
 
-### Run
+`make build` runs CMake configure + build. On first run, it automatically downloads slang v10.0 and all dependencies via CMake FetchContent. Subsequent builds are incremental.
 
-```bash
-# Basic usage
-./build/slang-cdc --top my_soc rtl/*.sv
+### Makefile targets
 
-# With SDC constraints
-./build/slang-cdc --top my_soc rtl/*.sv --sdc constraints/clocks.sdc
-
-# With YAML clock spec
-./build/slang-cdc --top my_soc rtl/*.sv --clock-yaml clock_domains.yaml
-
-# With waivers
-./build/slang-cdc --top my_soc rtl/*.sv --waiver cdc_waivers.yaml
-
-# CI mode (strict, JSON only)
-./build/slang-cdc --top my_soc rtl/*.sv --format json --strict
-
-# DOT graph export
-./build/slang-cdc --top my_soc rtl/*.sv --dump-graph cdc_graph.dot
-
-# Help
-./build/slang-cdc --help
 ```
+$ make help
 
-### Test
+slang-cdc build targets:
+  make deps        Fetch slang + dependencies via CMake FetchContent
+  make build       Release build (default)
+  make debug       Debug build
+  make test        Run test suite
+  make install     Install to ~/.local/bin (override: INSTALL_PREFIX=...)
+  make clean       Remove build directories
+  make rust-check  Check Rust/slang-rs availability
 
-```bash
-make test     # 126 tests, 400 assertions
+Variables:
+  JOBS=N           Parallel build jobs (default: auto-detect)
+  INSTALL_PREFIX   Install path (default: ~/.local)
 ```
 
 ### Install
 
 ```bash
-make install              # installs to ~/.local/bin
+make install                          # installs to ~/.local/bin/slang-cdc
 INSTALL_PREFIX=/usr/local make install  # custom prefix
 ```
 
-## CLI Options
+### Test
+
+```bash
+make test     # 171 tests, 515 assertions
+```
+
+## Usage
+
+### Help
 
 ```
-slang-cdc [OPTIONS] <SV_FILES...>
+$ ./build/slang-cdc --help
+
+slang-cdc v0.1.0 — Structural CDC Analysis Tool
+
+Usage: slang-cdc [OPTIONS] <SV_FILES...>
 
 Required:
   <SV_FILES...>           SystemVerilog source files
@@ -111,27 +123,87 @@ Required:
 
 Output:
   -o, --output <dir>      Output directory (default: ./cdc_reports/)
-  --format <fmt>          md|json|sdc|all (default: all)
+  --format <fmt>          md|json|sdc|waiver|all (default: all)
   --dump-graph <file>     Export DOT graph to file
 
-Clock specification:
+Options:
   --sdc <file>            SDC file with clock definitions
-  --clock-yaml <file>     YAML file with clock domain relationships
-  --auto-clocks           Auto-detect clocks from port names (default)
-
-Analysis control:
-  --waiver <file>         Waiver file (YAML) for known crossings
+  --clock-yaml <file>     Clock specification YAML file
+  --waiver <file>         Waiver YAML file
   --sync-stages <n>       Required synchronizer stages (default: 2)
-  --ignore-gated          Don't report gated-clock crossings
-  --strict                Treat CAUTION as VIOLATION
-
-Slang options (pass-through):
-  -I <dir>                Include directory
-  -D <macro>=<val>        Define preprocessor macro
-  --std <ver>             SystemVerilog standard version
+  --strict                Treat CAUTION as VIOLATION in exit code
+  --ignore-gated          Skip gated-clock crossings from report
+  --auto-clocks           Auto-detect clocks (default)
+  -v, --verbose           Detailed output
+  -q, --quiet             Only violations and summary
+  --version               Show version
+  -h, --help              Show this help
 ```
 
-**Note:** Custom options like `--verbose` may conflict with slang's internal flags. Use `--quiet` (`-q`) for minimal output.
+Slang pass-through options (`-I`, `-D`, `--std`, `--top`, etc.) are forwarded directly to slang's compiler driver.
+
+### Examples
+
+```bash
+# Basic: analyze a design, detect CDC violations
+./build/slang-cdc --top soc_top rtl/soc_top.sv rtl/subsystem.sv
+
+# With include path and defines
+./build/slang-cdc --top soc_top -I rtl/include -D SYNTHESIS rtl/*.sv
+
+# With SDC clock constraints
+./build/slang-cdc --top soc_top rtl/*.sv --sdc syn/clocks.sdc
+
+# With YAML clock specification
+./build/slang-cdc --top soc_top rtl/*.sv --clock-yaml clock_domains.yaml
+
+# Apply waivers for known-safe crossings
+./build/slang-cdc --top soc_top rtl/*.sv --waiver cdc_waivers.yaml
+
+# Require 3-stage synchronizers (high-frequency designs)
+./build/slang-cdc --top soc_top rtl/*.sv --sync-stages 3
+
+# CI mode: JSON only, strict (CAUTION = failure), exit code = violations
+./build/slang-cdc --top soc_top rtl/*.sv --format json --strict -q
+
+# Export connectivity graph for visualization
+./build/slang-cdc --top soc_top rtl/*.sv --dump-graph cdc_graph.dot
+dot -Tpng cdc_graph.dot -o cdc_graph.png   # requires Graphviz
+
+# Verbose mode: show clock sources, FF counts, edge counts
+./build/slang-cdc --top soc_top rtl/*.sv -v
+```
+
+### Output files
+
+By default (`--format all`), slang-cdc writes to `./cdc_reports/`:
+
+| File | Format | Content |
+|------|--------|---------|
+| `cdc_report.md` | Markdown | Human-readable summary, domain table, crossing details |
+| `cdc_report.json` | JSON | Machine-readable with category, severity, sync_type per crossing |
+| `cdc_report.sdc` | SDC | `set_false_path` / `set_max_delay` constraints for synced crossings |
+| `cdc_waivers.yaml` | YAML | Waiver template for VIOLATION crossings (fill in reason/owner) |
+
+### Example output
+
+```
+$ ./build/slang-cdc --top missing_sync tests/basic/02_missing_sync.sv
+
+slang-cdc: Design elaborated successfully.
+  FFs detected: 2
+
+  === CDC Summary ===
+  VIOLATION:  1
+  CAUTION:    0
+  CONVENTION: 0
+  INFO:       0
+  WAIVED:     0
+
+  Reports written to: ./cdc_reports/
+```
+
+Exit code is 1 (= 1 violation). In CI, a non-zero exit code fails the build.
 
 ## Architecture
 
@@ -140,39 +212,28 @@ SV RTL files
     | slang C++ API
 Elaborated Design (full hierarchy)
     | Pass 1
-Clock Tree Analysis (sources, propagation, SDC/YAML import)
+Clock Tree Analysis (sources, PLL/divider/gate, SDC/YAML import, propagation)
     | Pass 2
-FF Classification (every FF -> clock domain, reset tracking)
+FF Classification (every FF -> clock domain, reset tracking, latch/error detection)
     | Pass 3
-Connectivity Graph (FF-to-FF data paths through hierarchy)
+Connectivity Graph (FF-to-FF data paths through hierarchy, assign tracing)
     | Pass 4
-Cross-Domain Detection (async/related classification)
+Cross-Domain Detection (async/related/convention classification)
     | Pass 5
-Synchronizer Verification (2-FF, gray, handshake, pulse, quality checks)
+Synchronizer Verification (8 patterns, 5 quality checks)
     | Pass 6
-Report Generation (Markdown + JSON + SDC + DOT)
+Report Generation (Markdown + JSON + SDC + DOT + Waiver template)
 ```
 
 ## Violation Categories
 
-| Category | Meaning |
-|----------|---------|
-| `VIOLATION` | No synchronizer on async crossing |
-| `CAUTION` | Synchronizer exists but has quality issue (reconvergence, glitch path, fan-out) |
-| `CONVENTION` | Non-standard clock/reset naming |
-| `INFO` | Properly synchronized crossing |
-| `WAIVED` | User-waived crossing |
-
-## Makefile Targets
-
-| Target | Description |
-|--------|-------------|
-| `make deps` | Fetch slang + dependencies via CMake FetchContent |
-| `make build` | Release build |
-| `make debug` | Debug build |
-| `make test` | Run test suite (126 tests) |
-| `make install` | Install binary |
-| `make clean` | Remove build directories |
+| Category | Meaning | Exit code |
+|----------|---------|-----------|
+| `VIOLATION` | No synchronizer on async crossing | Counted |
+| `CAUTION` | Sync exists but quality issue (reconvergence, glitch, fan-out, non-pow2 FIFO) | Counted with `--strict` |
+| `CONVENTION` | Non-standard clock/reset naming | Not counted |
+| `INFO` | Properly synchronized crossing | Not counted |
+| `WAIVED` | User-waived crossing | Not counted |
 
 ## License
 

@@ -31,7 +31,7 @@ static void printUsage() {
               << "  --top <module>          Top-level module name\n\n"
               << "Output:\n"
               << "  -o, --output <dir>      Output directory (default: ./cdc_reports/)\n"
-              << "  --format <fmt>          md|json|sdc|all (default: all)\n"
+              << "  --format <fmt>          md|json|sdc|waiver|all (default: all)\n"
               << "  --dump-graph <file>     Export DOT graph to file\n\n"
               << "Options:\n"
               << "  --sdc <file>            SDC file with clock definitions\n"
