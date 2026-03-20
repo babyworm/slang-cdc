@@ -21,7 +21,7 @@ cd build && ctest --output-on-failure && cd ..
 echo "Tests passed."
 
 # Verify version matches
-CMAKE_VERSION=$(grep "project(slang-cdc VERSION" CMakeLists.txt | grep -oP '\d+\.\d+\.\d+')
+CMAKE_VERSION=$(grep "project(slang-cdc VERSION" CMakeLists.txt | sed 's/.*VERSION \([0-9]*\.[0-9]*\.[0-9]*\).*/\1/')
 TAG_VERSION="${VERSION#v}"
 if [ "$CMAKE_VERSION" != "$TAG_VERSION" ]; then
     echo "ERROR: CMakeLists.txt version ($CMAKE_VERSION) does not match tag ($TAG_VERSION)"
