@@ -12,10 +12,27 @@ SyncVerifier::SyncVerifier(std::vector<CrossingReport>& crossings,
 
 const FFNode* SyncVerifier::findNextFF(const FFNode* ff) const {
     // Find an FF in the same domain that is directly fed by this FF
+    // with no combinational logic in between (sync chain characteristic).
     for (auto& edge : edges_) {
         if (edge.source == ff && edge.dest &&
-            edge.dest->domain == ff->domain) {
-            return edge.dest;
+            edge.dest->domain == ff->domain &&
+            !edge.has_comb_logic) {
+            // Verify single fan-in: the dest FF's fanin should contain
+            // only the source FF's leaf name (sync chain characteristic).
+            const auto& fanin = edge.dest->fanin_signals;
+            std::string source_leaf = ff->hier_path;
+            auto dot_pos = source_leaf.rfind('.');
+            if (dot_pos != std::string::npos)
+                source_leaf = source_leaf.substr(dot_pos + 1);
+
+            if (fanin.empty()) {
+                // No fanin info available, accept the edge
+                return edge.dest;
+            }
+
+            bool single_fanin = (fanin.size() == 1 && fanin[0] == source_leaf);
+            if (single_fanin)
+                return edge.dest;
         }
     }
     return nullptr;
@@ -104,11 +121,14 @@ void SyncVerifier::detectResetSyncIssues() {
     // If so, check whether that reset signal is properly synchronized (has a 2-FF
     // sync chain in the crossing list).
 
-    // Build a set of source signals that have synced crossings to each dest domain
+    // Build a set of source signals that have synced crossings, keyed by
+    // "source_signal|dest_domain_name" to account for which destination
+    // domain the sync is for.
     std::unordered_set<std::string> synced_signals;
     for (auto& c : crossings_) {
-        if (c.sync_type != SyncType::None) {
-            synced_signals.insert(c.source_signal);
+        if (c.sync_type != SyncType::None && c.dest_domain) {
+            synced_signals.insert(c.source_signal + "|" +
+                                  c.dest_domain->canonical_name);
         }
     }
 
@@ -132,7 +152,10 @@ void SyncVerifier::detectResetSyncIssues() {
         if (!reset_source_ff) continue;
 
         // Check if there's already a synced crossing for this reset signal
-        bool is_synced = synced_signals.count(reset_source_ff->hier_path) > 0;
+        // to this specific destination domain
+        std::string sync_key = reset_source_ff->hier_path + "|" +
+            (ff->domain ? ff->domain->canonical_name : "");
+        bool is_synced = synced_signals.count(sync_key) > 0;
 
         if (!is_synced) {
             // Create a CAUTION crossing for the unsynchronized reset

@@ -166,6 +166,8 @@ int main(int argc, char** argv) {
     slang_cdc::AnalysisResult result;
     result.clock_db = std::move(clock_db);
     result.crossings = std::move(crossings);
+    result.ff_nodes = classifier.releaseFFNodes();
+    result.edges = connectivity.getEdges();
 
     fs::create_directories(output_dir);
 

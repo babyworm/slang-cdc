@@ -12,6 +12,7 @@
 #include "slang/ast/expressions/AssignmentExpressions.h"
 #include "slang/ast/expressions/OperatorExpressions.h"
 #include "slang/ast/expressions/SelectExpressions.h"
+#include "slang/ast/expressions/ConversionExpression.h"
 #include "slang/ast/Expression.h"
 #include "slang/ast/Statement.h"
 
@@ -48,8 +49,31 @@ static void collectReferencedSignals(const slang::ast::Expression& expr,
         }
         case slang::ast::ExpressionKind::ConditionalOp: {
             auto& cond = expr.as<slang::ast::ConditionalExpression>();
+            for (auto& condition : cond.conditions)
+                collectReferencedSignals(*condition.expr, signals);
             collectReferencedSignals(cond.left(), signals);
             collectReferencedSignals(cond.right(), signals);
+            return;
+        }
+        case slang::ast::ExpressionKind::Concatenation: {
+            auto& concat = expr.as<slang::ast::ConcatenationExpression>();
+            for (auto* op : concat.operands())
+                collectReferencedSignals(*op, signals);
+            return;
+        }
+        case slang::ast::ExpressionKind::ElementSelect: {
+            auto& sel = expr.as<slang::ast::ElementSelectExpression>();
+            collectReferencedSignals(sel.value(), signals);
+            return;
+        }
+        case slang::ast::ExpressionKind::RangeSelect: {
+            auto& sel = expr.as<slang::ast::RangeSelectExpression>();
+            collectReferencedSignals(sel.value(), signals);
+            return;
+        }
+        case slang::ast::ExpressionKind::Conversion: {
+            auto& conv = expr.as<slang::ast::ConversionExpression>();
+            collectReferencedSignals(conv.operand(), signals);
             return;
         }
         default:

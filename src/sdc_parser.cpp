@@ -102,7 +102,12 @@ SdcClockDef SdcParser::parseCreateClock(const std::vector<std::string>& tokens) 
         if (tokens[i] == "-name" && i + 1 < tokens.size()) {
             def.name = tokens[++i];
         } else if (tokens[i] == "-period" && i + 1 < tokens.size()) {
-            def.period = std::stod(tokens[++i]);
+            ++i;
+            try {
+                def.period = std::stod(tokens[i]);
+            } catch (const std::exception&) {
+                // Skip malformed period value
+            }
         } else if (tokens[i].starts_with("[get_ports") || tokens[i].starts_with("[get_pins")) {
             def.target = extractTarget(tokens[i]);
         }
@@ -118,9 +123,19 @@ SdcGeneratedClockDef SdcParser::parseGeneratedClock(const std::vector<std::strin
         } else if (tokens[i] == "-source" && i + 1 < tokens.size()) {
             def.source_clock = extractTarget(tokens[++i]);
         } else if (tokens[i] == "-divide_by" && i + 1 < tokens.size()) {
-            def.divide_by = std::stoi(tokens[++i]);
+            ++i;
+            try {
+                def.divide_by = std::stoi(tokens[i]);
+            } catch (const std::exception&) {
+                // Skip malformed divide_by value
+            }
         } else if (tokens[i] == "-multiply_by" && i + 1 < tokens.size()) {
-            def.multiply_by = std::stoi(tokens[++i]);
+            ++i;
+            try {
+                def.multiply_by = std::stoi(tokens[i]);
+            } catch (const std::exception&) {
+                // Skip malformed multiply_by value
+            }
         } else if (tokens[i] == "-invert") {
             def.invert = true;
         } else if (tokens[i].starts_with("[get_")) {

@@ -141,8 +141,12 @@ void ClockTreeAnalyzer::propagateFromRoot() {
 
 void ClockTreeAnalyzer::propagateInstance(
     const slang::ast::InstanceSymbol& inst,
-    const std::unordered_map<std::string, ClockNet*>& parent_nets)
+    const std::unordered_map<std::string, ClockNet*>& parent_nets,
+    const std::string& hier_prefix)
 {
+    std::string inst_path = hier_prefix.empty()
+        ? std::string(inst.name)
+        : hier_prefix + "." + std::string(inst.name);
     std::unordered_map<std::string, ClockNet*> local_nets;
 
     auto port_connections = inst.getPortConnections();
@@ -178,7 +182,7 @@ void ClockTreeAnalyzer::propagateInstance(
 
             if (parent_clock_net) {
                 auto net = std::make_unique<ClockNet>();
-                net->hier_path = std::string(inst.name) + "." + port_name;
+                net->hier_path = inst_path + "." + port_name;
                 net->source = parent_clock_net->source; // Same source!
                 net->edge = parent_clock_net->edge;
                 auto* net_ptr = clock_db_.addNet(std::move(net));
@@ -188,17 +192,18 @@ void ClockTreeAnalyzer::propagateInstance(
     }
 
     // Collect clocks from always_ff sensitivity lists in this instance
-    collectSensitivityClocks(inst, local_nets);
+    collectSensitivityClocks(inst, local_nets, inst_path);
 
     // Recurse into child instances
     for (auto& child : inst.body.membersOfType<slang::ast::InstanceSymbol>()) {
-        propagateInstance(child, local_nets);
+        propagateInstance(child, local_nets, inst_path);
     }
 }
 
 void ClockTreeAnalyzer::collectSensitivityClocks(
     const slang::ast::InstanceSymbol& inst,
-    std::unordered_map<std::string, ClockNet*>& local_nets)
+    std::unordered_map<std::string, ClockNet*>& local_nets,
+    const std::string& inst_path)
 {
     for (auto& member : inst.body.members()) {
         if (member.kind != slang::ast::SymbolKind::ProceduralBlock)
@@ -273,7 +278,7 @@ void ClockTreeAnalyzer::collectSensitivityClocks(
 
             if (found_source) {
                 auto net = std::make_unique<ClockNet>();
-                net->hier_path = std::string(inst.name) + "." + sig_name;
+                net->hier_path = inst_path + "." + sig_name;
                 net->source = found_source;
                 net->edge = edge;
                 auto* net_ptr = clock_db_.addNet(std::move(net));
@@ -294,7 +299,7 @@ void ClockTreeAnalyzer::importSdcRelationships() {
             case SdcClockGroup::Type::Exclusive:
                 rel_type = DomainRelationship::Type::PhysicallyExclusive; break;
             case SdcClockGroup::Type::LogicallyExclusive:
-                rel_type = DomainRelationship::Type::PhysicallyExclusive; break;
+                rel_type = DomainRelationship::Type::LogicallyExclusive; break;
         }
 
         // Register pairwise relationships between groups

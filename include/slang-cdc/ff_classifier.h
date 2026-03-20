@@ -22,6 +22,7 @@ public:
 
     void analyze();
     const std::vector<std::unique_ptr<FFNode>>& getFFNodes() const;
+    std::vector<std::unique_ptr<FFNode>> releaseFFNodes();
     const std::vector<LatchWarning>& getLatchWarnings() const;
 
 private:

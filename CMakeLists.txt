@@ -64,6 +64,7 @@ if(SLANG_CDC_BUILD_TESTS)
         tests/test_phase2_hierarchy.cpp
         tests/test_phase3_advanced.cpp
         tests/test_phase4_usability.cpp
+        tests/test_issue_fixes.cpp
     )
     target_link_libraries(slang-cdc-tests PRIVATE slang-cdc-lib Catch2::Catch2WithMain)
     add_test(NAME slang-cdc-tests COMMAND slang-cdc-tests)

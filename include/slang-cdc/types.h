@@ -51,7 +51,8 @@ struct DomainRelationship {
         Asynchronous,         // set_clock_groups -asynchronous
         SameSource,           // same PLL, same division
         Divided,              // integer-divided (harmonic)
-        PhysicallyExclusive   // set_clock_groups -physically_exclusive (mux)
+        PhysicallyExclusive,  // set_clock_groups -physically_exclusive (mux)
+        LogicallyExclusive    // set_clock_groups -logically_exclusive
     } relationship;
 };
 

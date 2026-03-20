@@ -60,12 +60,14 @@ private:
     /// Recursive: propagate clock nets into an instance via its port connections
     void propagateInstance(
         const slang::ast::InstanceSymbol& inst,
-        const std::unordered_map<std::string, ClockNet*>& parent_nets);
+        const std::unordered_map<std::string, ClockNet*>& parent_nets,
+        const std::string& hier_prefix = "");
 
     /// Extract clock signal from always_ff sensitivity list
     void collectSensitivityClocks(
         const slang::ast::InstanceSymbol& inst,
-        std::unordered_map<std::string, ClockNet*>& local_nets);
+        std::unordered_map<std::string, ClockNet*>& local_nets,
+        const std::string& inst_path);
 
     // ── Phase 1c: Relationship registration ──
 

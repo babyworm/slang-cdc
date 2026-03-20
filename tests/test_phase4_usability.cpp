@@ -557,14 +557,18 @@ TEST_CASE("Phase4: CONVENTION warning for non-standard clock naming", "[phase4][
     FullPipeline pipeline;
     pipeline.run(*compilation);
 
-    // Non-standard clock names should generate CONVENTION warnings
-    bool found_convention = false;
+    // Non-standard clock names should still be classified by domain relationship
+    // (VIOLATION for async), with a naming convention annotation in recommendation
+    bool found_convention_annotation = false;
     for (auto& c : pipeline.crossings) {
-        if (c.category == ViolationCategory::Convention) {
-            found_convention = true;
+        if (c.recommendation.find("naming convention") != std::string::npos) {
+            found_convention_annotation = true;
+            // Category should reflect the real domain relationship, not Convention
+            CHECK((c.category == ViolationCategory::Violation ||
+                   c.category == ViolationCategory::Caution));
         }
     }
-    CHECK(found_convention);
+    CHECK(found_convention_annotation);
 }
 
 TEST_CASE("Phase4: standard clock names do not trigger CONVENTION", "[phase4][convention]") {

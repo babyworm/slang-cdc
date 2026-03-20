@@ -28,8 +28,26 @@ void CrossingDetector::analyze() {
             report.path = edge.comb_path;
         }
 
-        // Check for CONVENTION: non-standard clock naming
-        // Use origin_signal if available, fall back to source name
+        // Classify severity based on domain relationship FIRST
+        bool is_async = clock_db_.isAsynchronous(
+            edge.source->domain, edge.dest->domain);
+
+        if (is_async) {
+            report.severity = Severity::High;
+            report.category = ViolationCategory::Violation;
+            report.id = "VIOLATION-" + std::to_string(++violation_counter_);
+            report.recommendation = "Insert 2-FF synchronizer at " +
+                edge.dest->hier_path;
+        } else {
+            // Related domains (divided, gated) -- lower severity
+            report.severity = Severity::Medium;
+            report.category = ViolationCategory::Caution;
+            report.id = "CAUTION-" + std::to_string(++caution_counter_);
+            report.recommendation = "Verify timing constraints for related-clock crossing";
+        }
+
+        // Add CONVENTION annotation for non-standard clock naming
+        // This is a separate note, NOT a replacement for the real category
         const std::string& src_clk_name = report.source_domain->source->origin_signal.empty()
             ? report.source_domain->source->name
             : report.source_domain->source->origin_signal;
@@ -40,33 +58,12 @@ void CrossingDetector::analyze() {
         bool dst_standard = ClockTreeAnalyzer::isClockName(dst_clk_name);
 
         if (!src_standard || !dst_standard) {
-            report.severity = Severity::Low;
-            report.category = ViolationCategory::Convention;
-            report.id = "CONVENTION-" + std::to_string(++convention_counter_);
             std::string bad_names;
             if (!src_standard) bad_names += src_clk_name;
             if (!src_standard && !dst_standard) bad_names += ", ";
             if (!dst_standard) bad_names += dst_clk_name;
-            report.recommendation = "Non-standard clock name: " + bad_names +
-                ". Use *clk*/*clock*/*ck* naming convention";
-        } else {
-            // Classify severity based on domain relationship
-            bool is_async = clock_db_.isAsynchronous(
-                edge.source->domain, edge.dest->domain);
-
-            if (is_async) {
-                report.severity = Severity::High;
-                report.category = ViolationCategory::Violation;
-                report.id = "VIOLATION-" + std::to_string(++violation_counter_);
-                report.recommendation = "Insert 2-FF synchronizer at " +
-                    edge.dest->hier_path;
-            } else {
-                // Related domains (divided, gated) -- lower severity
-                report.severity = Severity::Medium;
-                report.category = ViolationCategory::Caution;
-                report.id = "CAUTION-" + std::to_string(++caution_counter_);
-                report.recommendation = "Verify timing constraints for related-clock crossing";
-            }
+            report.recommendation += ". Also: non-standard clock naming convention (" +
+                bad_names + "). Use *clk*/*clock*/*ck* naming convention";
         }
 
         crossings_.push_back(std::move(report));

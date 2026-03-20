@@ -10,6 +10,8 @@
 #include "slang/ast/expressions/MiscExpressions.h"
 #include "slang/ast/expressions/AssignmentExpressions.h"
 #include "slang/ast/expressions/OperatorExpressions.h"
+#include "slang/ast/expressions/SelectExpressions.h"
+#include "slang/ast/expressions/ConversionExpression.h"
 #include "slang/ast/Expression.h"
 #include "slang/ast/Statement.h"
 #include "slang/ast/statements/ConditionalStatements.h"
@@ -140,8 +142,31 @@ static void collectRHSSignals(const slang::ast::Expression& expr,
         }
         case slang::ast::ExpressionKind::ConditionalOp: {
             auto& cond = expr.as<slang::ast::ConditionalExpression>();
+            for (auto& condition : cond.conditions)
+                collectRHSSignals(*condition.expr, signals);
             collectRHSSignals(cond.left(), signals);
             collectRHSSignals(cond.right(), signals);
+            return;
+        }
+        case slang::ast::ExpressionKind::Concatenation: {
+            auto& concat = expr.as<slang::ast::ConcatenationExpression>();
+            for (auto* op : concat.operands())
+                collectRHSSignals(*op, signals);
+            return;
+        }
+        case slang::ast::ExpressionKind::ElementSelect: {
+            auto& sel = expr.as<slang::ast::ElementSelectExpression>();
+            collectRHSSignals(sel.value(), signals);
+            return;
+        }
+        case slang::ast::ExpressionKind::RangeSelect: {
+            auto& sel = expr.as<slang::ast::RangeSelectExpression>();
+            collectRHSSignals(sel.value(), signals);
+            return;
+        }
+        case slang::ast::ExpressionKind::Conversion: {
+            auto& conv = expr.as<slang::ast::ConversionExpression>();
+            collectRHSSignals(conv.operand(), signals);
             return;
         }
         default:
@@ -362,6 +387,10 @@ void FFClassifier::analyze() {
 
 const std::vector<std::unique_ptr<FFNode>>& FFClassifier::getFFNodes() const {
     return ff_nodes_;
+}
+
+std::vector<std::unique_ptr<FFNode>> FFClassifier::releaseFFNodes() {
+    return std::move(ff_nodes_);
 }
 
 const std::vector<LatchWarning>& FFClassifier::getLatchWarnings() const {
