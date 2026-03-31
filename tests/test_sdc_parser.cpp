@@ -1,10 +1,10 @@
 #include <catch2/catch_test_macros.hpp>
 #include <fstream>
 #include <filesystem>
-#include "slang-cdc/sdc_parser.h"
+#include "sv-cdccheck/sdc_parser.h"
 
 namespace fs = std::filesystem;
-using namespace slang_cdc;
+using namespace sv_cdccheck;
 
 // Helper: write a temp SDC file and return its path
 static fs::path writeTempSdc(const std::string& content) {

@@ -1,10 +1,10 @@
-#include "slang-cdc/clock_yaml_parser.h"
-#include "slang-cdc/types.h"
+#include "sv-cdccheck/clock_yaml_parser.h"
+#include "sv-cdccheck/types.h"
 
 #include <fstream>
 #include <sstream>
 
-namespace slang_cdc {
+namespace sv_cdccheck {
 
 bool ClockYamlParser::loadFile(const std::string& path) {
     std::ifstream file(path);
@@ -253,4 +253,4 @@ void ClockYamlParser::applyTo(ClockDatabase& clock_db) const {
     }
 }
 
-} // namespace slang_cdc
+} // namespace sv_cdccheck

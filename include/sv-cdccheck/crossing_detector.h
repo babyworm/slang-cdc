@@ -1,8 +1,8 @@
 #pragma once
 
-#include "slang-cdc/types.h"
+#include "sv-cdccheck/types.h"
 
-namespace slang_cdc {
+namespace sv_cdccheck {
 
 /// Pass 4: Cross-domain detection
 ///
@@ -26,4 +26,4 @@ private:
     int info_counter_ = 0;
 };
 
-} // namespace slang_cdc
+} // namespace sv_cdccheck

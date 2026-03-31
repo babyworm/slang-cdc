@@ -1,15 +1,15 @@
 #include <catch2/catch_test_macros.hpp>
-#include "slang-cdc/clock_tree.h"
-#include "slang-cdc/ff_classifier.h"
-#include "slang-cdc/connectivity.h"
-#include "slang-cdc/crossing_detector.h"
+#include "sv-cdccheck/clock_tree.h"
+#include "sv-cdccheck/ff_classifier.h"
+#include "sv-cdccheck/connectivity.h"
+#include "sv-cdccheck/crossing_detector.h"
 #include "slang/driver/Driver.h"
 
 #include <fstream>
 #include <filesystem>
 
 namespace fs = std::filesystem;
-using namespace slang_cdc;
+using namespace sv_cdccheck;
 
 static std::unique_ptr<slang::ast::Compilation> compileSV(const std::string& sv_code) {
     static int counter = 0;

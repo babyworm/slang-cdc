@@ -1,9 +1,9 @@
-#include "slang-cdc/filelist_parser.h"
+#include "sv-cdccheck/filelist_parser.h"
 #include <fstream>
 #include <sstream>
 #include <algorithm>
 
-namespace slang_cdc {
+namespace sv_cdccheck {
 
 namespace fs = std::filesystem;
 
@@ -175,4 +175,4 @@ void FilelistParser::parseLine(const std::string& raw_line,
     result.source_files.push_back(p.lexically_normal().string());
 }
 
-} // namespace slang_cdc
+} // namespace sv_cdccheck

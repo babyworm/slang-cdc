@@ -1,4 +1,4 @@
-# slang-cdc Makefile — convenience wrapper around CMake
+# sv-cdccheck Makefile — convenience wrapper around CMake
 # Usage: make deps && make build
 
 BUILD_DIR     := build
@@ -22,13 +22,13 @@ deps:
 
 # --- Build targets ---
 build: deps
-	@echo "==> Building slang-cdc (Release, $(JOBS) jobs)..."
+	@echo "==> Building sv-cdccheck (Release, $(JOBS) jobs)..."
 	cmake --build $(BUILD_DIR) -j$(JOBS)
 
 debug:
 	@echo "==> Configuring debug build..."
 	cmake -S . -B $(BUILD_DIR_DBG) $(CMAKE_DEBUG)
-	@echo "==> Building slang-cdc (Debug, $(JOBS) jobs)..."
+	@echo "==> Building sv-cdccheck (Debug, $(JOBS) jobs)..."
 	cmake --build $(BUILD_DIR_DBG) -j$(JOBS)
 
 # --- Test ---
@@ -38,7 +38,7 @@ test: build
 
 # --- Install ---
 install: build
-	@echo "==> Installing to $(INSTALL_PREFIX)/bin/slang-cdc..."
+	@echo "==> Installing to $(INSTALL_PREFIX)/bin/sv-cdccheck..."
 	cmake --install $(BUILD_DIR) --prefix $(INSTALL_PREFIX) --strip
 
 # --- Clean ---
@@ -59,12 +59,12 @@ rust-check:
 	@echo "  svlang-sys   — Low-level FFI bindings"
 	@echo "  sv-parser    — Pure Rust SV parser (no elaboration)"
 	@echo ""
-	@echo "To experiment: cargo init --name slang-cdc-rs experiments/rust"
+	@echo "To experiment: cargo init --name sv-cdccheck-rs experiments/rust"
 	@echo "               cd experiments/rust && cargo add slang-rs"
 
 # --- Help ---
 help:
-	@echo "slang-cdc build targets:"
+	@echo "sv-cdccheck build targets:"
 	@echo "  make deps        Fetch slang + dependencies via CMake FetchContent"
 	@echo "  make build       Release build (default)"
 	@echo "  make debug       Debug build"

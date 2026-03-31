@@ -1,5 +1,5 @@
-#include "slang-cdc/connectivity.h"
-#include "slang-cdc/ast_utils.h"
+#include "sv-cdccheck/connectivity.h"
+#include "sv-cdccheck/ast_utils.h"
 #include "slang/ast/symbols/CompilationUnitSymbols.h"
 #include "slang/ast/symbols/InstanceSymbols.h"
 #include "slang/ast/symbols/MemberSymbols.h"
@@ -19,7 +19,7 @@
 
 #include <algorithm>
 
-namespace slang_cdc {
+namespace sv_cdccheck {
 
 ConnectivityBuilder::ConnectivityBuilder(slang::ast::Compilation& compilation,
                                          const std::vector<std::unique_ptr<FFNode>>& ff_nodes)
@@ -341,4 +341,4 @@ const std::vector<FFEdge>& ConnectivityBuilder::getEdges() const {
     return edges_;
 }
 
-} // namespace slang_cdc
+} // namespace sv_cdccheck

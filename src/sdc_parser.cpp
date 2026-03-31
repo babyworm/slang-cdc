@@ -1,10 +1,10 @@
-#include "slang-cdc/sdc_parser.h"
+#include "sv-cdccheck/sdc_parser.h"
 #include <fstream>
 #include <sstream>
 #include <algorithm>
 #include <regex>
 
-namespace slang_cdc {
+namespace sv_cdccheck {
 
 SdcConstraints SdcParser::parse(const std::filesystem::path& sdc_path) {
     SdcConstraints result;
@@ -200,4 +200,4 @@ std::vector<std::string> SdcParser::parseBraceList(const std::string& s) {
     return result;
 }
 
-} // namespace slang_cdc
+} // namespace sv_cdccheck

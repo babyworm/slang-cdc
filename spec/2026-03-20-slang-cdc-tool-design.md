@@ -1,4 +1,4 @@
-# slang-cdc: Open-Source Structural CDC Analysis Tool
+# sv-cdccheck: Open-Source Structural CDC Analysis Tool
 
 > Design Spec — 2026-03-20
 > Status: DRAFT
@@ -24,7 +24,7 @@ elaborated design representation.
 - RTL designers performing pre-synthesis CDC sign-off
 - Open-source silicon projects (OpenTitan, PULP, etc.)
 - Academic/educational use
-- rtl-agent-team plugin users (via `run_cdc.sh --tool slang-cdc`)
+- rtl-agent-team plugin users (via `run_cdc.sh --tool sv-cdccheck`)
 
 ## 3. Architecture Overview
 
@@ -288,7 +288,7 @@ Even when a synchronizer is present, check for:
 ## 5. CLI Interface
 
 ```
-slang-cdc [OPTIONS] <SV_FILES...>
+sv-cdccheck [OPTIONS] <SV_FILES...>
 
 Required:
   <SV_FILES...>           SystemVerilog source files or -f <filelist>
@@ -324,16 +324,16 @@ Verbosity:
 
 ```bash
 # Basic usage
-slang-cdc --top soc_top -f rtl/filelist_top.f -o sim/cdc/reports/
+sv-cdccheck --top soc_top -f rtl/filelist_top.f -o sim/cdc/reports/
 
 # With clock constraints
-slang-cdc --top soc_top -f rtl/filelist_top.f --sdc syn/constraints/clocks.sdc
+sv-cdccheck --top soc_top -f rtl/filelist_top.f --sdc syn/constraints/clocks.sdc
 
 # With waivers
-slang-cdc --top soc_top -f rtl/filelist_top.f --waiver sim/cdc/waivers.yaml
+sv-cdccheck --top soc_top -f rtl/filelist_top.f --waiver sim/cdc/waivers.yaml
 
 # CI mode (exit code = violation count)
-slang-cdc --top soc_top -f rtl/filelist_top.f --format json --quiet
+sv-cdccheck --top soc_top -f rtl/filelist_top.f --format json --quiet
 ```
 
 ## 6. Waiver Mechanism
@@ -391,17 +391,17 @@ domain_groups:
 
 ### 8.1 Installation via rat-setup
 
-`rat-setup` Phase 1 (tool audit) checks for `slang-cdc`:
+`rat-setup` Phase 1 (tool audit) checks for `sv-cdccheck`:
 ```bash
-slang-cdc --version 2>&1 || echo "NOT_FOUND"
+sv-cdccheck --version 2>&1 || echo "NOT_FOUND"
 ```
 
 If not found, offer installation:
 ```bash
 # Option 1: Pre-built binary (when available)
 # Option 2: Build from source
-git clone https://github.com/<org>/slang-cdc.git ~/tools/slang-cdc
-cd ~/tools/slang-cdc
+git clone https://github.com/<org>/sv-cdccheck.git ~/tools/sv-cdccheck
+cd ~/tools/sv-cdccheck
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$HOME/.local"
 cmake --build build -j$(nproc)
 cmake --install build
@@ -412,8 +412,8 @@ cmake --install build
 Replace current grep-based `structural` mode:
 ```bash
 # In run_cdc.sh, structural case:
-structural|slang-cdc)
-    CMD="slang-cdc --top $TOP -f $FILELIST -o $OUTDIR --format all"
+structural|sv-cdccheck)
+    CMD="sv-cdccheck --top $TOP -f $FILELIST -o $OUTDIR --format all"
     [ -n "$WAIVER_FILE" ] && CMD="$CMD --waiver $WAIVER_FILE"
     run_tool $CMD
     ;;
@@ -421,7 +421,7 @@ structural|slang-cdc)
 
 ### 8.3 cdc-checker Agent Integration
 
-The `cdc-checker` agent invokes `run_cdc.sh --tool slang-cdc` and parses the JSON report
+The `cdc-checker` agent invokes `run_cdc.sh --tool sv-cdccheck` and parses the JSON report
 to classify violations for the orchestrator.
 
 ## 9. Implementation Phases
@@ -467,7 +467,7 @@ to classify violations for the orchestrator.
 
 ```cmake
 cmake_minimum_required(VERSION 3.20)
-project(slang-cdc VERSION 0.1.0 LANGUAGES CXX)
+project(sv-cdccheck VERSION 0.1.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 
@@ -475,7 +475,7 @@ set(CMAKE_CXX_STANDARD 20)
 find_package(slang REQUIRED)
 # Or: FetchContent from github
 
-add_executable(slang-cdc
+add_executable(sv-cdccheck
     src/main.cpp
     src/clock_tree.cpp
     src/ff_classifier.cpp
@@ -485,7 +485,7 @@ add_executable(slang-cdc
     src/report_generator.cpp
 )
 
-target_link_libraries(slang-cdc PRIVATE slang::slang)
+target_link_libraries(sv-cdccheck PRIVATE slang::slang)
 ```
 
 ## 11. Testing Strategy

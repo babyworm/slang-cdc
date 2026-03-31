@@ -1,4 +1,4 @@
-#include "slang-cdc/sync_verifier.h"
+#include "sv-cdccheck/sync_verifier.h"
 
 #include <algorithm>
 #include <unordered_map>
@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <cctype>
 
-namespace slang_cdc {
+namespace sv_cdccheck {
 
 SyncVerifier::SyncVerifier(std::vector<CrossingReport>& crossings,
                            const std::vector<std::unique_ptr<FFNode>>& ff_nodes,
@@ -914,4 +914,4 @@ void SyncVerifier::detectQuasiStaticSignals() {
     }
 }
 
-} // namespace slang_cdc
+} // namespace sv_cdccheck

@@ -1,6 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
-#include "slang-cdc/clock_tree.h"
-#include "slang-cdc/ff_classifier.h"
+#include "sv-cdccheck/clock_tree.h"
+#include "sv-cdccheck/ff_classifier.h"
 #include "slang/driver/Driver.h"
 #include "slang/ast/symbols/CompilationUnitSymbols.h"
 #include "slang/ast/symbols/InstanceSymbols.h"
@@ -10,7 +10,7 @@
 #include <filesystem>
 
 namespace fs = std::filesystem;
-using namespace slang_cdc;
+using namespace sv_cdccheck;
 
 static std::unique_ptr<slang::ast::Compilation> compileSV(const std::string& sv_code) {
     static int counter = 0;

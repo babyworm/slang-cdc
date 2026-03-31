@@ -1,7 +1,7 @@
-#include "slang-cdc/crossing_detector.h"
-#include "slang-cdc/clock_tree.h"
+#include "sv-cdccheck/crossing_detector.h"
+#include "sv-cdccheck/clock_tree.h"
 
-namespace slang_cdc {
+namespace sv_cdccheck {
 
 CrossingDetector::CrossingDetector(const std::vector<FFEdge>& edges,
                                    const ClockDatabase& clock_db)
@@ -93,4 +93,4 @@ std::vector<CrossingReport> CrossingDetector::getCrossings() const {
     return crossings_;
 }
 
-} // namespace slang_cdc
+} // namespace sv_cdccheck

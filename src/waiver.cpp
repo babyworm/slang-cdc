@@ -1,9 +1,9 @@
-#include "slang-cdc/waiver.h"
+#include "sv-cdccheck/waiver.h"
 #include <fstream>
 #include <sstream>
 #include <algorithm>
 
-namespace slang_cdc {
+namespace sv_cdccheck {
 
 bool WaiverManager::loadFile(const std::string& path) {
     std::ifstream file(path);
@@ -156,4 +156,4 @@ bool WaiverManager::matchPattern(const std::string& pattern,
     return pattern == signal;
 }
 
-} // namespace slang_cdc
+} // namespace sv_cdccheck

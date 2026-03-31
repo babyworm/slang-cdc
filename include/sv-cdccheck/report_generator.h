@@ -1,10 +1,10 @@
 #pragma once
 
-#include "slang-cdc/types.h"
+#include "sv-cdccheck/types.h"
 #include <string>
 #include <filesystem>
 
-namespace slang_cdc {
+namespace sv_cdccheck {
 
 /// Pass 6: Report generation
 class ReportGenerator {
@@ -24,4 +24,4 @@ private:
     const AnalysisResult& result_;
 };
 
-} // namespace slang_cdc
+} // namespace sv_cdccheck

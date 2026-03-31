@@ -1,9 +1,9 @@
 #pragma once
 
-#include "slang-cdc/types.h"
+#include "sv-cdccheck/types.h"
 #include "slang/ast/Compilation.h"
 
-namespace slang_cdc {
+namespace sv_cdccheck {
 
 /// Latch warning: always_latch detected (not a proper FF for CDC)
 struct LatchWarning {
@@ -40,4 +40,4 @@ private:
     std::vector<FFClassificationError> errors_;
 };
 
-} // namespace slang_cdc
+} // namespace sv_cdccheck

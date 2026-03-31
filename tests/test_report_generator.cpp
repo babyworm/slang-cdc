@@ -1,13 +1,13 @@
 #include <catch2/catch_test_macros.hpp>
-#include "slang-cdc/types.h"
-#include "slang-cdc/report_generator.h"
+#include "sv-cdccheck/types.h"
+#include "sv-cdccheck/report_generator.h"
 
 #include <fstream>
 #include <filesystem>
 #include <string>
 
 namespace fs = std::filesystem;
-using namespace slang_cdc;
+using namespace sv_cdccheck;
 
 static AnalysisResult makeTestResult() {
     AnalysisResult result;

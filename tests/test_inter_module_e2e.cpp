@@ -1,18 +1,18 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_approx.hpp>
 #include "test_helpers.h"
-#include "slang-cdc/clock_tree.h"
-#include "slang-cdc/sdc_parser.h"
-#include "slang-cdc/ff_classifier.h"
-#include "slang-cdc/connectivity.h"
-#include "slang-cdc/crossing_detector.h"
-#include "slang-cdc/sync_verifier.h"
+#include "sv-cdccheck/clock_tree.h"
+#include "sv-cdccheck/sdc_parser.h"
+#include "sv-cdccheck/ff_classifier.h"
+#include "sv-cdccheck/connectivity.h"
+#include "sv-cdccheck/crossing_detector.h"
+#include "sv-cdccheck/sync_verifier.h"
 
 #include <fstream>
 #include <filesystem>
 
 namespace fs = std::filesystem;
-using namespace slang_cdc;
+using namespace sv_cdccheck;
 
 // Full pipeline helper
 struct E2EPipeline {

@@ -10,23 +10,23 @@
 #include "slang/ast/symbols/CompilationUnitSymbols.h"
 #include "slang/ast/symbols/InstanceSymbols.h"
 
-#include "slang-cdc/types.h"
-#include "slang-cdc/clock_tree.h"
-#include "slang-cdc/sdc_parser.h"
-#include "slang-cdc/ff_classifier.h"
-#include "slang-cdc/connectivity.h"
-#include "slang-cdc/crossing_detector.h"
-#include "slang-cdc/sync_verifier.h"
-#include "slang-cdc/report_generator.h"
-#include "slang-cdc/waiver.h"
-#include "slang-cdc/clock_yaml_parser.h"
-#include "slang-cdc/filelist_parser.h"
+#include "sv-cdccheck/types.h"
+#include "sv-cdccheck/clock_tree.h"
+#include "sv-cdccheck/sdc_parser.h"
+#include "sv-cdccheck/ff_classifier.h"
+#include "sv-cdccheck/connectivity.h"
+#include "sv-cdccheck/crossing_detector.h"
+#include "sv-cdccheck/sync_verifier.h"
+#include "sv-cdccheck/report_generator.h"
+#include "sv-cdccheck/waiver.h"
+#include "sv-cdccheck/clock_yaml_parser.h"
+#include "sv-cdccheck/filelist_parser.h"
 
 namespace fs = std::filesystem;
 
 static void printUsage() {
-    std::cout << "slang-cdc v0.1.1 — Structural CDC Analysis Tool\n\n"
-              << "Usage: slang-cdc [OPTIONS] <SV_FILES...>\n\n"
+    std::cout << "sv-cdccheck v0.1.1 — Structural CDC Analysis Tool\n\n"
+              << "Usage: sv-cdccheck [OPTIONS] <SV_FILES...>\n\n"
               << "Required:\n"
               << "  <SV_FILES...>           SystemVerilog source files\n"
               << "  --top <module>          Top-level module name\n\n"
@@ -75,7 +75,7 @@ int main(int argc, char** argv) {
     for (int i = 1; i < argc; i++) {
         std::string arg = argv[i];
         if (arg == "--version") {
-            std::cout << "slang-cdc 0.1.1\n";
+            std::cout << "sv-cdccheck 0.1.1\n";
             return 0;
         }
         if (arg == "-h" || arg == "--help") {
@@ -144,7 +144,7 @@ int main(int argc, char** argv) {
         std::string arg = argv[i];
         if ((arg == "-f" || arg == "-F") && i + 1 < argc) {
             std::string path_str = argv[++i];
-            auto fl = slang_cdc::FilelistParser::parse(path_str);
+            auto fl = sv_cdccheck::FilelistParser::parse(path_str);
 
             for (auto& src : fl.source_files)
                 filelist_owned_args.push_back(std::move(src));
@@ -178,26 +178,26 @@ int main(int argc, char** argv) {
     compilation->getAllDiagnostics();
 
     if (!quiet)
-        std::cout << "slang-cdc: Design elaborated successfully.\n";
+        std::cout << "sv-cdccheck: Design elaborated successfully.\n";
 
     // ─── Pass 1: Clock Tree Analysis ───
-    slang_cdc::ClockDatabase clock_db;
-    slang_cdc::ClockTreeAnalyzer clock_analyzer(*compilation, clock_db);
+    sv_cdccheck::ClockDatabase clock_db;
+    sv_cdccheck::ClockTreeAnalyzer clock_analyzer(*compilation, clock_db);
 
     if (!sdc_file.empty()) {
         if (verbose)
             std::cout << "  Loading SDC: " << sdc_file << "\n";
-        auto sdc = slang_cdc::SdcParser::parse(sdc_file);
+        auto sdc = sv_cdccheck::SdcParser::parse(sdc_file);
         clock_analyzer.loadSdc(sdc);
     }
 
     // Load clock YAML specification before analysis
-    slang_cdc::ClockYamlParser clock_yaml_parser;
+    sv_cdccheck::ClockYamlParser clock_yaml_parser;
     if (!clock_yaml_file.empty()) {
         if (verbose)
             std::cout << "  Loading clock YAML: " << clock_yaml_file << "\n";
         if (!clock_yaml_parser.loadFile(clock_yaml_file)) {
-            std::cerr << "slang-cdc: warning: could not load clock YAML file: "
+            std::cerr << "sv-cdccheck: warning: could not load clock YAML file: "
                       << clock_yaml_file << "\n";
         } else {
             clock_yaml_parser.applyTo(clock_db);
@@ -216,7 +216,7 @@ int main(int argc, char** argv) {
     }
 
     // ─── Pass 2: FF Classification ───
-    slang_cdc::FFClassifier classifier(*compilation, clock_db);
+    sv_cdccheck::FFClassifier classifier(*compilation, clock_db);
     classifier.analyze();
 
     if (!quiet)
@@ -224,35 +224,35 @@ int main(int argc, char** argv) {
 
     // Print FF classification errors (e.g., multi-clock sensitivity)
     for (auto& err : classifier.getErrors()) {
-        std::cerr << "slang-cdc: error: " << err.hier_path << ": "
+        std::cerr << "sv-cdccheck: error: " << err.hier_path << ": "
                   << err.message << "\n";
     }
 
     // ─── Pass 3: Connectivity Graph ───
-    slang_cdc::ConnectivityBuilder connectivity(*compilation, classifier.getFFNodes());
+    sv_cdccheck::ConnectivityBuilder connectivity(*compilation, classifier.getFFNodes());
     connectivity.analyze();
 
     if (verbose)
         std::cout << "  FF-to-FF edges: " << connectivity.getEdges().size() << "\n";
 
     // ─── Pass 4: Cross-Domain Detection ───
-    slang_cdc::CrossingDetector detector(connectivity.getEdges(), clock_db);
+    sv_cdccheck::CrossingDetector detector(connectivity.getEdges(), clock_db);
     detector.analyze();
     auto crossings = detector.getCrossings();
 
     // ─── Pass 5: Synchronizer Verification ───
-    slang_cdc::SyncVerifier verifier(crossings, classifier.getFFNodes(),
+    sv_cdccheck::SyncVerifier verifier(crossings, classifier.getFFNodes(),
                                      connectivity.getEdges(), &clock_db);
     verifier.setRequiredStages(sync_stages);
     verifier.analyze();
 
     // ─── Apply Waivers ───
-    slang_cdc::WaiverManager waiver_mgr;
+    sv_cdccheck::WaiverManager waiver_mgr;
     if (!waiver_file.empty()) {
         if (verbose)
             std::cout << "  Loading waivers: " << waiver_file << "\n";
         if (!waiver_mgr.loadFile(waiver_file)) {
-            std::cerr << "slang-cdc: warning: could not load waiver file: "
+            std::cerr << "sv-cdccheck: warning: could not load waiver file: "
                       << waiver_file << "\n";
         } else if (verbose) {
             std::cout << "  Waivers loaded: " << waiver_mgr.getWaivers().size() << "\n";
@@ -261,7 +261,7 @@ int main(int argc, char** argv) {
 
     for (auto& c : crossings) {
         if (waiver_mgr.isWaived(c.source_signal, c.dest_signal)) {
-            c.category = slang_cdc::ViolationCategory::Waived;
+            c.category = sv_cdccheck::ViolationCategory::Waived;
         }
     }
 
@@ -269,14 +269,14 @@ int main(int argc, char** argv) {
     if (ignore_gated) {
         crossings.erase(
             std::remove_if(crossings.begin(), crossings.end(),
-                [](const slang_cdc::CrossingReport& c) {
-                    return c.severity == slang_cdc::Severity::Low;
+                [](const sv_cdccheck::CrossingReport& c) {
+                    return c.severity == sv_cdccheck::Severity::Low;
                 }),
             crossings.end());
     }
 
     // ─── Pass 6: Report Generation ───
-    slang_cdc::AnalysisResult result;
+    sv_cdccheck::AnalysisResult result;
     result.clock_db = std::move(clock_db);
     result.crossings = std::move(crossings);
     result.ff_nodes = classifier.releaseFFNodes();
@@ -284,7 +284,7 @@ int main(int argc, char** argv) {
 
     fs::create_directories(output_dir);
 
-    slang_cdc::ReportGenerator report(result);
+    sv_cdccheck::ReportGenerator report(result);
 
     if (format == "md" || format == "all")
         report.generateMarkdown(fs::path(output_dir) / "cdc_report.md");

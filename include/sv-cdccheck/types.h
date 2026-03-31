@@ -7,7 +7,7 @@
 #include <memory>
 #include <cstdint>
 
-namespace slang_cdc {
+namespace sv_cdccheck {
 
 // ─── Clock edge ───
 enum class Edge { Posedge, Negedge };
@@ -179,4 +179,4 @@ struct AnalysisResult {
     int convention_count() const;
 };
 
-} // namespace slang_cdc
+} // namespace sv_cdccheck

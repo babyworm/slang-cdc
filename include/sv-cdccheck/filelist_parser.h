@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-namespace slang_cdc {
+namespace sv_cdccheck {
 
 /// Result of parsing a Verilog/EDA filelist (.f file)
 struct FilelistResult {
@@ -39,4 +39,4 @@ private:
     static constexpr int MAX_RECURSION = 10;
 };
 
-} // namespace slang_cdc
+} // namespace sv_cdccheck

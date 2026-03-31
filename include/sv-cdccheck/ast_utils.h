@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-namespace slang_cdc {
+namespace sv_cdccheck {
 
 /// Extract signal name from a NamedValueExpression
 std::string extractSignalName(const slang::ast::Expression& expr);
@@ -28,4 +28,4 @@ struct AssignInfo {
 void collectAssignments(const slang::ast::Statement& stmt,
                         std::vector<AssignInfo>& assignments);
 
-} // namespace slang_cdc
+} // namespace sv_cdccheck

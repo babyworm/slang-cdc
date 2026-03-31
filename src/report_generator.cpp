@@ -1,10 +1,10 @@
-#include "slang-cdc/report_generator.h"
+#include "sv-cdccheck/report_generator.h"
 #include <fstream>
 #include <sstream>
 #include <unordered_map>
 #include <functional>
 
-namespace slang_cdc {
+namespace sv_cdccheck {
 
 static const char* categoryToString(ViolationCategory cat) {
     switch (cat) {
@@ -296,7 +296,7 @@ void ReportGenerator::generateJSON(const std::filesystem::path& output_path) con
 
 void ReportGenerator::generateSDC(const std::filesystem::path& output_path) const {
     std::ofstream out(output_path);
-    out << "# Auto-generated CDC constraints by slang-cdc\n";
+    out << "# Auto-generated CDC constraints by sv-cdccheck\n";
     out << "# " << result_.crossings.size() << " crossing(s)\n\n";
 
     for (auto& c : result_.crossings) {
@@ -430,4 +430,4 @@ void ReportGenerator::generateWaiverTemplate(const std::filesystem::path& output
     }
 }
 
-} // namespace slang_cdc
+} // namespace sv_cdccheck

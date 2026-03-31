@@ -4,7 +4,7 @@
 #include <vector>
 #include <optional>
 
-namespace slang_cdc {
+namespace sv_cdccheck {
 
 /// A single waiver entry from the YAML waiver file
 struct WaiverEntry {
@@ -51,4 +51,4 @@ private:
                                const std::string& dest);
 };
 
-} // namespace slang_cdc
+} // namespace sv_cdccheck

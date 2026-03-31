@@ -1,4 +1,4 @@
-#include "slang-cdc/clock_tree.h"
+#include "sv-cdccheck/clock_tree.h"
 #include "slang/ast/symbols/CompilationUnitSymbols.h"
 #include "slang/ast/symbols/BlockSymbols.h"
 #include "slang/ast/TimingControl.h"
@@ -15,7 +15,7 @@
 #include <algorithm>
 #include <cstring>
 
-namespace slang_cdc {
+namespace sv_cdccheck {
 
 ClockTreeAnalyzer::ClockTreeAnalyzer(slang::ast::Compilation& compilation,
                                      ClockDatabase& clock_db)
@@ -754,4 +754,4 @@ bool ClockTreeAnalyzer::isResetName(const std::string& name) {
     return false;
 }
 
-} // namespace slang_cdc
+} // namespace sv_cdccheck

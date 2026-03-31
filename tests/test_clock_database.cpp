@@ -1,7 +1,7 @@
 #include <catch2/catch_test_macros.hpp>
-#include "slang-cdc/types.h"
+#include "sv-cdccheck/types.h"
 
-using namespace slang_cdc;
+using namespace sv_cdccheck;
 
 TEST_CASE("ClockDatabase: addSource and pointer stability", "[clock_db]") {
     ClockDatabase db;

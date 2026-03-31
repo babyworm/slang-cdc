@@ -1,4 +1,4 @@
-# CLAUDE.md — slang-cdc
+# CLAUDE.md — sv-cdccheck
 
 ## Build
 make build   # Release (fetches slang v10.0 via FetchContent)
@@ -7,7 +7,7 @@ make debug   # Debug build
 
 ## Architecture
 6-pass pipeline: ClockTree → FFClassifier → Connectivity → CrossingDetector → SyncVerifier → ReportGenerator
-All passes in src/*.cpp with headers in include/slang-cdc/*.h
+All passes in src/*.cpp with headers in include/sv-cdccheck/*.h
 Shared AST utilities in ast_utils.h/cpp
 
 ## Key Design Decisions

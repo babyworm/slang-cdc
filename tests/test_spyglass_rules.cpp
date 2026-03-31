@@ -1,18 +1,18 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_string.hpp>
-#include "slang-cdc/clock_tree.h"
-#include "slang-cdc/ff_classifier.h"
-#include "slang-cdc/connectivity.h"
-#include "slang-cdc/crossing_detector.h"
-#include "slang-cdc/sync_verifier.h"
-#include "slang-cdc/report_generator.h"
+#include "sv-cdccheck/clock_tree.h"
+#include "sv-cdccheck/ff_classifier.h"
+#include "sv-cdccheck/connectivity.h"
+#include "sv-cdccheck/crossing_detector.h"
+#include "sv-cdccheck/sync_verifier.h"
+#include "sv-cdccheck/report_generator.h"
 #include "slang/driver/Driver.h"
 
 #include <fstream>
 #include <filesystem>
 
 namespace fs = std::filesystem;
-using namespace slang_cdc;
+using namespace sv_cdccheck;
 using Catch::Matchers::ContainsSubstring;
 
 namespace {

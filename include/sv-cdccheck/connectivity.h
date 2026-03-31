@@ -1,9 +1,9 @@
 #pragma once
 
-#include "slang-cdc/types.h"
+#include "sv-cdccheck/types.h"
 #include "slang/ast/Compilation.h"
 
-namespace slang_cdc {
+namespace sv_cdccheck {
 
 /// Pass 3: Connectivity graph — build FF-to-FF data paths
 ///
@@ -30,4 +30,4 @@ private:
     void findFFtoFFEdges(const std::unordered_map<std::string, FFNode*>& output_map);
 };
 
-} // namespace slang_cdc
+} // namespace sv_cdccheck

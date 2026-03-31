@@ -4,7 +4,7 @@
 #include <vector>
 #include <optional>
 
-namespace slang_cdc {
+namespace sv_cdccheck {
 
 struct ClockDatabase;
 
@@ -54,4 +54,4 @@ private:
     void parseYaml(const std::string& content);
 };
 
-} // namespace slang_cdc
+} // namespace sv_cdccheck

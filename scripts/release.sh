@@ -1,12 +1,12 @@
 #!/bin/bash
-# Release script for slang-cdc
+# Release script for sv-cdccheck
 # Usage: ./scripts/release.sh v0.1.0
 
 set -euo pipefail
 
 VERSION="${1:?Usage: $0 <version-tag> (e.g., v0.1.0)}"
 
-echo "=== slang-cdc release: $VERSION ==="
+echo "=== sv-cdccheck release: $VERSION ==="
 
 # Verify clean working tree
 if [ -n "$(git status --porcelain)" ]; then
@@ -21,7 +21,7 @@ cd build && ctest --output-on-failure && cd ..
 echo "Tests passed."
 
 # Verify version matches
-CMAKE_VERSION=$(grep "project(slang-cdc VERSION" CMakeLists.txt | sed 's/.*VERSION \([0-9]*\.[0-9]*\.[0-9]*\).*/\1/')
+CMAKE_VERSION=$(grep "project(sv-cdccheck VERSION" CMakeLists.txt | sed 's/.*VERSION \([0-9]*\.[0-9]*\.[0-9]*\).*/\1/')
 TAG_VERSION="${VERSION#v}"
 if [ "$CMAKE_VERSION" != "$TAG_VERSION" ]; then
     echo "ERROR: CMakeLists.txt version ($CMAKE_VERSION) does not match tag ($TAG_VERSION)"
@@ -37,4 +37,4 @@ git push origin "$VERSION"
 echo ""
 echo "=== Tag $VERSION pushed ==="
 echo "GitHub Actions will build and create the release automatically."
-echo "Monitor at: https://github.com/babyworm/slang-cdc/actions"
+echo "Monitor at: https://github.com/babyworm/sv-cdccheck/actions"

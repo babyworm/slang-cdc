@@ -1,22 +1,22 @@
 #include <catch2/catch_test_macros.hpp>
 #include "test_helpers.h"
-#include "slang-cdc/clock_tree.h"
-#include "slang-cdc/ff_classifier.h"
-#include "slang-cdc/connectivity.h"
-#include "slang-cdc/crossing_detector.h"
-#include "slang-cdc/sync_verifier.h"
-#include "slang-cdc/sdc_parser.h"
-#include "slang-cdc/waiver.h"
-#include "slang-cdc/clock_yaml_parser.h"
-#include "slang-cdc/report_generator.h"
+#include "sv-cdccheck/clock_tree.h"
+#include "sv-cdccheck/ff_classifier.h"
+#include "sv-cdccheck/connectivity.h"
+#include "sv-cdccheck/crossing_detector.h"
+#include "sv-cdccheck/sync_verifier.h"
+#include "sv-cdccheck/sdc_parser.h"
+#include "sv-cdccheck/waiver.h"
+#include "sv-cdccheck/clock_yaml_parser.h"
+#include "sv-cdccheck/report_generator.h"
 
 #include <fstream>
 #include <filesystem>
 #include <string>
 
 namespace fs = std::filesystem;
-using namespace slang_cdc;
-using slang_cdc::test::compileSV;
+using namespace sv_cdccheck;
+using sv_cdccheck::test::compileSV;
 
 // Helper: write a temp file and return its path (do NOT delete)
 static fs::path writeTempFile(const std::string& content, const std::string& ext) {

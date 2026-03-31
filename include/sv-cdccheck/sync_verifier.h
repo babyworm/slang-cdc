@@ -1,8 +1,8 @@
 #pragma once
 
-#include "slang-cdc/types.h"
+#include "sv-cdccheck/types.h"
 
-namespace slang_cdc {
+namespace sv_cdccheck {
 
 /// Pass 5: Synchronizer verification — pattern matching on crossing paths
 ///
@@ -95,4 +95,4 @@ private:
     std::unordered_map<const FFNode*, std::vector<const FFEdge*>> edges_from_;
 };
 
-} // namespace slang_cdc
+} // namespace sv_cdccheck

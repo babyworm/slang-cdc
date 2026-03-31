@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(slang-cdc VERSION 0.1.1 LANGUAGES CXX)
+project(sv-cdccheck VERSION 0.1.1 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -18,7 +18,7 @@ else()
 endif()
 
 # --- Library (core analysis passes) ---
-add_library(slang-cdc-lib STATIC
+add_library(sv-cdccheck-lib STATIC
     src/ast_utils.cpp
     src/clock_tree.cpp
     src/sdc_parser.cpp
@@ -32,15 +32,15 @@ add_library(slang-cdc-lib STATIC
     src/filelist_parser.cpp
 )
 
-target_include_directories(slang-cdc-lib PUBLIC
+target_include_directories(sv-cdccheck-lib PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-target_link_libraries(slang-cdc-lib PUBLIC slang::slang)
+target_link_libraries(sv-cdccheck-lib PUBLIC slang::slang)
 
 # --- Executable ---
-add_executable(slang-cdc src/main.cpp)
-target_link_libraries(slang-cdc PRIVATE slang-cdc-lib)
+add_executable(sv-cdccheck src/main.cpp)
+target_link_libraries(sv-cdccheck PRIVATE sv-cdccheck-lib)
 
 # --- Tests ---
 if(SLANG_CDC_BUILD_TESTS)
@@ -55,7 +55,7 @@ if(SLANG_CDC_BUILD_TESTS)
     )
     FetchContent_MakeAvailable(Catch2)
 
-    add_executable(slang-cdc-tests
+    add_executable(sv-cdccheck-tests
         tests/test_sdc_parser.cpp
         tests/test_clock_database.cpp
         tests/test_clock_tree.cpp
@@ -81,12 +81,12 @@ if(SLANG_CDC_BUILD_TESTS)
         tests/test_filelist.cpp
         tests/test_inter_module_e2e.cpp
     )
-    target_link_libraries(slang-cdc-tests PRIVATE slang-cdc-lib Catch2::Catch2WithMain)
-    target_compile_definitions(slang-cdc-tests PRIVATE
+    target_link_libraries(sv-cdccheck-tests PRIVATE sv-cdccheck-lib Catch2::Catch2WithMain)
+    target_compile_definitions(sv-cdccheck-tests PRIVATE
         SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
     )
-    add_test(NAME slang-cdc-tests COMMAND slang-cdc-tests)
+    add_test(NAME sv-cdccheck-tests COMMAND sv-cdccheck-tests)
 endif()
 
 # --- Install ---
-install(TARGETS slang-cdc DESTINATION bin)
+install(TARGETS sv-cdccheck DESTINATION bin)

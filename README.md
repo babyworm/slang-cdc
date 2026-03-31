@@ -1,4 +1,4 @@
-# slang-cdc
+# sv-cdccheck
 
 Open-source structural CDC (Clock Domain Crossing) analysis tool for SystemVerilog RTL designs.
 
@@ -8,7 +8,7 @@ Built on [slang](https://github.com/MikePopoloski/slang) — a fast, compliant S
 
 CDC bugs cause non-deterministic metastability failures that are nearly impossible to reproduce in simulation. Commercial CDC tools cost $100K+/year and are inaccessible to small teams, academic users, and open-source silicon projects.
 
-**slang-cdc** provides structural CDC analysis using slang's elaborated design representation — detecting cross-domain paths, verifying synchronizer patterns, and generating actionable reports.
+**sv-cdccheck** provides structural CDC analysis using slang's elaborated design representation — detecting cross-domain paths, verifying synchronizer patterns, and generating actionable reports.
 
 ## Features
 
@@ -67,8 +67,8 @@ CDC bugs cause non-deterministic metastability failures that are nearly impossib
 ### Build from source
 
 ```bash
-git clone https://github.com/babyworm/slang-cdc.git
-cd slang-cdc
+git clone https://github.com/babyworm/sv-cdccheck.git
+cd sv-cdccheck
 make build
 ```
 
@@ -79,7 +79,7 @@ make build
 ```
 $ make help
 
-slang-cdc build targets:
+sv-cdccheck build targets:
   make deps        Fetch slang + dependencies via CMake FetchContent
   make build       Release build (default)
   make debug       Debug build
@@ -96,7 +96,7 @@ Variables:
 ### Install
 
 ```bash
-make install                          # installs to ~/.local/bin/slang-cdc
+make install                          # installs to ~/.local/bin/sv-cdccheck
 INSTALL_PREFIX=/usr/local make install  # custom prefix
 ```
 
@@ -111,11 +111,11 @@ make test     # 257 tests, ~720 assertions
 ### Help
 
 ```
-$ ./build/slang-cdc --help
+$ ./build/sv-cdccheck --help
 
-slang-cdc v0.1.1 — Structural CDC Analysis Tool
+sv-cdccheck v0.1.1 — Structural CDC Analysis Tool
 
-Usage: slang-cdc [OPTIONS] <SV_FILES...>
+Usage: sv-cdccheck [OPTIONS] <SV_FILES...>
 
 Required:
   <SV_FILES...>           SystemVerilog source files
@@ -146,37 +146,37 @@ Slang pass-through options (`-I`, `-D`, `--std`, `--top`, etc.) are forwarded di
 
 ```bash
 # Basic: analyze a design, detect CDC violations
-./build/slang-cdc --top soc_top rtl/soc_top.sv rtl/subsystem.sv
+./build/sv-cdccheck --top soc_top rtl/soc_top.sv rtl/subsystem.sv
 
 # With include path and defines
-./build/slang-cdc --top soc_top -I rtl/include -D SYNTHESIS rtl/*.sv
+./build/sv-cdccheck --top soc_top -I rtl/include -D SYNTHESIS rtl/*.sv
 
 # With SDC clock constraints
-./build/slang-cdc --top soc_top rtl/*.sv --sdc syn/clocks.sdc
+./build/sv-cdccheck --top soc_top rtl/*.sv --sdc syn/clocks.sdc
 
 # With YAML clock specification
-./build/slang-cdc --top soc_top rtl/*.sv --clock-yaml clock_domains.yaml
+./build/sv-cdccheck --top soc_top rtl/*.sv --clock-yaml clock_domains.yaml
 
 # Apply waivers for known-safe crossings
-./build/slang-cdc --top soc_top rtl/*.sv --waiver cdc_waivers.yaml
+./build/sv-cdccheck --top soc_top rtl/*.sv --waiver cdc_waivers.yaml
 
 # Require 3-stage synchronizers (high-frequency designs)
-./build/slang-cdc --top soc_top rtl/*.sv --sync-stages 3
+./build/sv-cdccheck --top soc_top rtl/*.sv --sync-stages 3
 
 # CI mode: JSON only, strict (CAUTION = failure), exit code = violations
-./build/slang-cdc --top soc_top rtl/*.sv --format json --strict -q
+./build/sv-cdccheck --top soc_top rtl/*.sv --format json --strict -q
 
 # Export connectivity graph for visualization
-./build/slang-cdc --top soc_top rtl/*.sv --dump-graph cdc_graph.dot
+./build/sv-cdccheck --top soc_top rtl/*.sv --dump-graph cdc_graph.dot
 dot -Tpng cdc_graph.dot -o cdc_graph.png   # requires Graphviz
 
 # Verbose mode: show clock sources, FF counts, edge counts
-./build/slang-cdc --top soc_top rtl/*.sv -v
+./build/sv-cdccheck --top soc_top rtl/*.sv -v
 ```
 
 ### Output files
 
-By default (`--format all`), slang-cdc writes to `./cdc_reports/`:
+By default (`--format all`), sv-cdccheck writes to `./cdc_reports/`:
 
 | File | Format | Content |
 |------|--------|---------|
@@ -188,9 +188,9 @@ By default (`--format all`), slang-cdc writes to `./cdc_reports/`:
 ### Example output
 
 ```
-$ ./build/slang-cdc --top missing_sync tests/basic/02_missing_sync.sv
+$ ./build/sv-cdccheck --top missing_sync tests/basic/02_missing_sync.sv
 
-slang-cdc: Design elaborated successfully.
+sv-cdccheck: Design elaborated successfully.
   FFs detected: 2
 
   === CDC Summary ===

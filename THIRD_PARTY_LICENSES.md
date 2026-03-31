@@ -1,7 +1,7 @@
 # Third-Party Licenses
 
-slang-cdc uses the following open-source libraries. Each is compatible with
-the MIT license under which slang-cdc is distributed.
+sv-cdccheck uses the following open-source libraries. Each is compatible with
+the MIT license under which sv-cdccheck is distributed.
 
 ## slang — SystemVerilog compiler library
 

@@ -15,13 +15,13 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            artifact: slang-cdc-linux-x86_64
+            artifact: sv-cdccheck-linux-x86_64
             cmake_extra: ""
           - os: macos-latest
-            artifact: slang-cdc-macos-arm64
+            artifact: sv-cdccheck-macos-arm64
             cmake_extra: ""
           - os: windows-latest
-            artifact: slang-cdc-windows-x86_64
+            artifact: sv-cdccheck-windows-x86_64
             cmake_extra: ""
 
     steps:
@@ -47,17 +47,17 @@ jobs:
       if: runner.os != 'Windows'
       run: |
         mkdir -p dist
-        cp build/slang-cdc dist/
-        strip dist/slang-cdc
-        cd dist && tar czf ../${{ matrix.artifact }}.tar.gz slang-cdc
+        cp build/sv-cdccheck dist/
+        strip dist/sv-cdccheck
+        cd dist && tar czf ../${{ matrix.artifact }}.tar.gz sv-cdccheck
 
     - name: Package (Windows)
       if: runner.os == 'Windows'
       shell: bash
       run: |
         mkdir -p dist
-        cp build/Release/slang-cdc.exe dist/
-        cd dist && 7z a ../${{ matrix.artifact }}.zip slang-cdc.exe
+        cp build/Release/sv-cdccheck.exe dist/
+        cd dist && 7z a ../${{ matrix.artifact }}.zip sv-cdccheck.exe
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4

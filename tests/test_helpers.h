@@ -9,7 +9,7 @@
 #include <memory>
 #include <string>
 
-namespace slang_cdc::test {
+namespace sv_cdccheck::test {
 inline std::unique_ptr<slang::ast::Compilation> compileSV(const std::string& sv_code, const std::string& prefix = "test") {
     static int counter = 0;
     auto path = std::filesystem::temp_directory_path() / (prefix + "_" + std::to_string(counter++) + ".sv");
@@ -36,4 +36,4 @@ inline std::unique_ptr<slang::ast::Compilation> compileSV(const std::string& sv_
     compilation->getAllDiagnostics();
     return compilation;
 }
-} // namespace slang_cdc::test
+} // namespace sv_cdccheck::test

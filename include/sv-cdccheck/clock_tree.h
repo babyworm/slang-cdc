@@ -1,7 +1,7 @@
 #pragma once
 
-#include "slang-cdc/types.h"
-#include "slang-cdc/sdc_parser.h"
+#include "sv-cdccheck/types.h"
+#include "sv-cdccheck/sdc_parser.h"
 #include "slang/ast/Compilation.h"
 #include "slang/ast/Statement.h"
 #include "slang/ast/symbols/InstanceSymbols.h"
@@ -9,7 +9,7 @@
 
 #include <optional>
 
-namespace slang_cdc {
+namespace sv_cdccheck {
 
 /// Pass 1: Clock tree analysis
 ///
@@ -108,4 +108,4 @@ private:
 
 };
 
-} // namespace slang_cdc
+} // namespace sv_cdccheck

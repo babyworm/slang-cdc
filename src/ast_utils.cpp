@@ -1,4 +1,4 @@
-#include "slang-cdc/ast_utils.h"
+#include "sv-cdccheck/ast_utils.h"
 
 #include "slang/ast/expressions/MiscExpressions.h"
 #include "slang/ast/expressions/AssignmentExpressions.h"
@@ -10,7 +10,7 @@
 
 #include <algorithm>
 
-namespace slang_cdc {
+namespace sv_cdccheck {
 
 std::string extractSignalName(const slang::ast::Expression& expr) {
     if (expr.kind == slang::ast::ExpressionKind::NamedValue) {
@@ -122,4 +122,4 @@ void collectAssignments(const slang::ast::Statement& stmt,
     }
 }
 
-} // namespace slang_cdc
+} // namespace sv_cdccheck

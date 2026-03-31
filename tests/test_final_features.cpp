@@ -1,17 +1,17 @@
 #include <catch2/catch_test_macros.hpp>
 #include "test_helpers.h"
-#include "slang-cdc/clock_tree.h"
-#include "slang-cdc/ff_classifier.h"
-#include "slang-cdc/connectivity.h"
-#include "slang-cdc/crossing_detector.h"
-#include "slang-cdc/sync_verifier.h"
+#include "sv-cdccheck/clock_tree.h"
+#include "sv-cdccheck/ff_classifier.h"
+#include "sv-cdccheck/connectivity.h"
+#include "sv-cdccheck/crossing_detector.h"
+#include "sv-cdccheck/sync_verifier.h"
 
 #include <algorithm>
 
-using namespace slang_cdc;
+using namespace sv_cdccheck;
 
 static std::unique_ptr<slang::ast::Compilation> compileSV(const std::string& sv_code) {
-    return slang_cdc::test::compileSV(sv_code, "test_final");
+    return sv_cdccheck::test::compileSV(sv_code, "test_final");
 }
 
 struct FullPipeline {

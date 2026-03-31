@@ -1,5 +1,5 @@
 #include <catch2/catch_test_macros.hpp>
-#include "slang-cdc/clock_tree.h"
+#include "sv-cdccheck/clock_tree.h"
 #include "slang/ast/Compilation.h"
 #include "slang/ast/symbols/CompilationUnitSymbols.h"
 #include "slang/ast/symbols/InstanceSymbols.h"
@@ -9,7 +9,7 @@
 #include <filesystem>
 
 namespace fs = std::filesystem;
-using namespace slang_cdc;
+using namespace sv_cdccheck;
 
 // Helper: compile a SystemVerilog string
 static std::unique_ptr<slang::ast::Compilation> compileSV(const std::string& sv_code) {
@@ -22,7 +22,7 @@ static std::unique_ptr<slang::ast::Compilation> compileSV(const std::string& sv_
     slang::driver::Driver driver;
     driver.addStandardArgs();
 
-    const char* args[] = {"slang-cdc", path_str.c_str()};
+    const char* args[] = {"sv-cdccheck", path_str.c_str()};
     driver.parseCommandLine(2, const_cast<char**>(args));
     driver.processOptions();
     driver.parseAllSources();

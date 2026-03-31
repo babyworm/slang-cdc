@@ -1,6 +1,6 @@
-#include "slang-cdc/ff_classifier.h"
-#include "slang-cdc/clock_tree.h"
-#include "slang-cdc/ast_utils.h"
+#include "sv-cdccheck/ff_classifier.h"
+#include "sv-cdccheck/clock_tree.h"
+#include "sv-cdccheck/ast_utils.h"
 
 #include "slang/ast/symbols/CompilationUnitSymbols.h"
 #include "slang/ast/symbols/InstanceSymbols.h"
@@ -19,7 +19,7 @@
 #include "slang/ast/statements/ConditionalStatements.h"
 #include "slang/ast/SemanticFacts.h"
 
-namespace slang_cdc {
+namespace sv_cdccheck {
 
 FFClassifier::FFClassifier(slang::ast::Compilation& compilation,
                            ClockDatabase& clock_db)
@@ -484,4 +484,4 @@ const std::vector<FFClassificationError>& FFClassifier::getErrors() const {
     return errors_;
 }
 
-} // namespace slang_cdc
+} // namespace sv_cdccheck

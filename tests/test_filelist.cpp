@@ -1,10 +1,10 @@
 #include <catch2/catch_test_macros.hpp>
 #include <fstream>
 #include <filesystem>
-#include "slang-cdc/filelist_parser.h"
+#include "sv-cdccheck/filelist_parser.h"
 
 namespace fs = std::filesystem;
-using namespace slang_cdc;
+using namespace sv_cdccheck;
 
 // Helper: write a temp file and return its path
 static fs::path writeTempFile(const std::string& content, const std::string& suffix = ".f") {

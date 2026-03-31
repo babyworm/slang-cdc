@@ -1,11 +1,11 @@
 #pragma once
 
-#include "slang-cdc/types.h"
+#include "sv-cdccheck/types.h"
 #include <filesystem>
 #include <string>
 #include <vector>
 
-namespace slang_cdc {
+namespace sv_cdccheck {
 
 /// Parsed SDC clock definition: create_clock
 struct SdcClockDef {
@@ -65,4 +65,4 @@ private:
     static std::vector<std::string> parseBraceList(const std::string& s);
 };
 
-} // namespace slang_cdc
+} // namespace sv_cdccheck

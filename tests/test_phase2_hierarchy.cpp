@@ -1,8 +1,8 @@
 #include <catch2/catch_test_macros.hpp>
-#include "slang-cdc/clock_tree.h"
-#include "slang-cdc/ff_classifier.h"
-#include "slang-cdc/connectivity.h"
-#include "slang-cdc/crossing_detector.h"
+#include "sv-cdccheck/clock_tree.h"
+#include "sv-cdccheck/ff_classifier.h"
+#include "sv-cdccheck/connectivity.h"
+#include "sv-cdccheck/crossing_detector.h"
 #include "slang/driver/Driver.h"
 #include "slang/ast/symbols/CompilationUnitSymbols.h"
 #include "slang/ast/symbols/InstanceSymbols.h"
@@ -13,7 +13,7 @@
 #include <algorithm>
 
 namespace fs = std::filesystem;
-using namespace slang_cdc;
+using namespace sv_cdccheck;
 
 // Force elaboration of all procedural blocks recursively
 static void forceElaboration(const slang::ast::InstanceSymbol& inst) {

@@ -1,13 +1,13 @@
 #include <catch2/catch_test_macros.hpp>
-#include "slang-cdc/clock_yaml_parser.h"
-#include "slang-cdc/types.h"
+#include "sv-cdccheck/clock_yaml_parser.h"
+#include "sv-cdccheck/types.h"
 
 #include <fstream>
 #include <filesystem>
 #include <cmath>
 
 namespace fs = std::filesystem;
-using namespace slang_cdc;
+using namespace sv_cdccheck;
 
 // =============================================================================
 // Basic YAML Parsing
