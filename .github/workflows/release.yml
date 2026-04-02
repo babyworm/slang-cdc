@@ -25,14 +25,14 @@ jobs:
             cmake_extra: ""
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
 
     - name: Install dependencies (Ubuntu)
       if: runner.os == 'Linux'
       run: sudo apt-get update && sudo apt-get install -y cmake python3
 
     - name: Configure
-      run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DSLANG_CDC_BUILD_TESTS=OFF
+      run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DSV_CDCCHECK_BUILD_TESTS=OFF
 
     - name: Build
       shell: bash
@@ -71,7 +71,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
 
     - name: Download all artifacts
       uses: actions/download-artifact@v4
